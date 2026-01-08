@@ -74,6 +74,38 @@ async function makeRequest(
   }
 }
 
+async function uploadFile(
+  this: IExecuteFunctions,
+  itemIndex: number,
+  binaryPropertyName: string,
+): Promise<any> {
+  const credentials = await this.getCredentials("postProxyApi");
+  const binaryData = this.helpers.assertBinaryData(itemIndex, binaryPropertyName);
+
+  // TODO: Replace with real API call when endpoint is ready
+  // Mock implementation for now
+  const dataBuffer = await this.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
+  const fileName = binaryData.fileName || "file";
+  const fileSize = dataBuffer.length;
+  
+  // Generate a mock URL (similar to what the real API would return)
+  const mockFileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const mockUrl = `https://storage.postproxy.dev/files/${mockFileId}/${encodeURIComponent(fileName)}`;
+
+  this.logger?.info(`[MOCK] Uploading file: ${fileName} (${fileSize} bytes)`);
+  this.logger?.info(`[MOCK] File URL: ${mockUrl}`);
+
+  // Return mock response structure
+  return {
+    id: mockFileId,
+    url: mockUrl,
+    filename: fileName,
+    size: fileSize,
+    content_type: binaryData.mimeType || "application/octet-stream",
+    uploaded_at: new Date().toISOString(),
+  };
+}
+
 export class PostProxy implements INodeType {
   description: INodeTypeDescription = {
     displayName: "PostProxy",
@@ -108,6 +140,10 @@ export class PostProxy implements INodeType {
           {
             name: "Post",
             value: "post",
+          },
+          {
+            name: "File",
+            value: "file",
           },
         ],
         default: "account",
@@ -218,6 +254,40 @@ export class PostProxy implements INodeType {
         description:
           "Schedule the post for a specific date and time (ISO 8601 format). Leave empty for immediate publishing",
       },
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["file"],
+          },
+        },
+        options: [
+          {
+            name: "Upload",
+            value: "upload",
+            description: "Upload a file to PostProxy storage",
+          },
+        ],
+        default: "upload",
+      },
+      {
+        displayName: "Binary Property",
+        name: "binaryPropertyName",
+        type: "string",
+        required: true,
+        default: "data",
+        displayOptions: {
+          show: {
+            resource: ["file"],
+            operation: ["upload"],
+          },
+        },
+        description:
+          "Name of the binary property that contains the file to upload",
+      },
     ],
   };
 
@@ -321,6 +391,48 @@ export class PostProxy implements INodeType {
           },
         ],
       ];
+    }
+
+    if (resource === "file" && operation === "upload") {
+      const binaryPropertyName = this.getNodeParameter(
+        "binaryPropertyName",
+        0,
+      ) as string;
+
+      const items = this.getInputData();
+      const returnData: INodeExecutionData[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        try {
+          const response = await uploadFile.call(
+            this,
+            i,
+            binaryPropertyName,
+          );
+
+          returnData.push({
+            json: {
+              url: response.url || response.data?.url || response.file?.url,
+              id: response.id || response.data?.id || response.file?.id,
+              ...response,
+            },
+            binary: items[i].binary,
+          });
+        } catch (error: any) {
+          if (this.continueOnFail()) {
+            returnData.push({
+              json: {
+                error: error.message,
+              },
+              binary: items[i].binary,
+            });
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      return [returnData];
     }
 
     throw new Error(
