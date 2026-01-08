@@ -19,7 +19,7 @@ async function makeRequest(
   this: IExecuteFunctions,
   method: IHttpRequestMethods,
   endpoint: string,
-  body?: any
+  body?: any,
 ): Promise<any> {
   const credentials = await this.getCredentials("postProxyApi");
 
@@ -66,7 +66,8 @@ async function makeRequest(
     } else if (error.code === "ETIMEDOUT" || error.code === "ECONNABORTED") {
       errorMessage = "PostProxy API request timed out";
     } else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-      errorMessage = "PostProxy API connection failed. Please check your network connection.";
+      errorMessage =
+        "PostProxy API connection failed. Please check your network connection.";
     }
 
     throw new Error(errorMessage);
@@ -80,7 +81,8 @@ export class PostProxy implements INodeType {
     icon: "file:postproxy.svg",
     group: ["transform"],
     version: 1,
-    description: "Interact with PostProxy API - unified API for publishing and scheduling posts across multiple social media platforms",
+    description:
+      "Unified API for publishing and scheduling posts across multiple social media platforms",
     defaults: {
       name: "PostProxy",
     },
@@ -143,7 +145,8 @@ export class PostProxy implements INodeType {
           {
             name: "Create",
             value: "create",
-            description: "Create a new post to publish on social media accounts",
+            description:
+              "Create a new post to publish on social media accounts",
           },
         ],
         default: "create",
@@ -196,7 +199,8 @@ export class PostProxy implements INodeType {
             operation: ["create"],
           },
         },
-        description: "Array of media URLs (images or videos) to attach to the post",
+        description:
+          "Array of media URLs (images or videos) to attach to the post",
         default: [],
       },
       {
@@ -211,14 +215,17 @@ export class PostProxy implements INodeType {
             operation: ["create"],
           },
         },
-        description: "Schedule the post for a specific date and time (ISO 8601 format). Leave empty for immediate publishing",
+        description:
+          "Schedule the post for a specific date and time (ISO 8601 format). Leave empty for immediate publishing",
       },
     ],
   };
 
   methods = {
     loadOptions: {
-      async getAccounts(this: ILoadOptionsFunctions): Promise<Array<{ name: string; value: string }>> {
+      async getAccounts(
+        this: ILoadOptionsFunctions,
+      ): Promise<Array<{ name: string; value: string }>> {
         const credentials = await this.getCredentials("postProxyApi");
 
         try {
@@ -270,8 +277,12 @@ export class PostProxy implements INodeType {
     if (resource === "post" && operation === "create") {
       const content = this.getNodeParameter("content", 0) as string;
       const accountIds = this.getNodeParameter("accounts", 0) as string[];
-      const mediaUrls = this.getNodeParameter("media", 0, []) as string[] | undefined;
-      const publishAt = this.getNodeParameter("publish_at", 0) as string | undefined;
+      const mediaUrls = this.getNodeParameter("media", 0, []) as
+        | string[]
+        | undefined;
+      const publishAt = this.getNodeParameter("publish_at", 0) as
+        | string
+        | undefined;
 
       if (!accountIds || accountIds.length === 0) {
         throw new Error("At least one account must be selected");
@@ -288,7 +299,9 @@ export class PostProxy implements INodeType {
 
       if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
         const filteredUrls = mediaUrls
-          .filter((url) => url && typeof url === "string" && url.trim().length > 0)
+          .filter(
+            (url) => url && typeof url === "string" && url.trim().length > 0,
+          )
           .map((url) => url.trim());
         if (filteredUrls.length > 0) {
           body.media = filteredUrls;
@@ -310,6 +323,8 @@ export class PostProxy implements INodeType {
       ];
     }
 
-    throw new Error(`Unknown resource/operation combination: ${resource}/${operation}`);
+    throw new Error(
+      `Unknown resource/operation combination: ${resource}/${operation}`,
+    );
   }
 }
