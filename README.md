@@ -16,4 +16,3 @@ PostProxy provides a unified API for publishing and scheduling posts across mult
 ## Installation (local)
 ```bash
 npm install n8n-nodes-postproxy
-```bash
