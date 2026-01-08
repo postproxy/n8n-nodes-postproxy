@@ -1,0 +1,64 @@
+{
+  "name": "RSS Feed to PostProxy",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://example.com/feed.xml",
+        "options": {}
+      },
+      "id": "rss-read",
+      "name": "RSS Feed Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract title and link from RSS item\nconst items = $input.all();\nconst result = [];\n\nfor (const item of items) {\n  const title = item.json.title || '';\n  const link = item.json.link || '';\n  \n  result.push({\n    json: {\n      title: title,\n      link: link,\n      content: `${title}\\n\\n${link}`\n    }\n  });\n}\n\nreturn result;"
+      },
+      "id": "format-content",
+      "name": "Format Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "content": "={{ $json.content }}",
+        "accounts": [],
+        "media": []
+      },
+      "id": "postproxy-create",
+      "name": "PostProxy Create Post",
+      "type": "n8n-nodes-postproxy.postProxy",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "postProxyApi": {
+          "id": "1",
+          "name": "PostProxy API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "RSS Feed Read": {
+      "main": [[{ "node": "Format Content", "type": "main", "index": 0 }]]
+    },
+    "Format Content": {
+      "main": [[{ "node": "PostProxy Create Post", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+

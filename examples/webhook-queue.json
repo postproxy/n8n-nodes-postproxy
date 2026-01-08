@@ -1,0 +1,70 @@
+{
+  "name": "Webhook Queue to PostProxy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "postproxy-queue",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "postproxy-queue-webhook"
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "content": "={{ $json.body.content }}",
+        "accounts": "={{ $json.body.accounts || [] }}",
+        "media": "={{ $json.body.media || [] }}",
+        "publish_at": "={{ $json.body.publish_at || '' }}"
+      },
+      "id": "postproxy-create",
+      "name": "PostProxy Create Post",
+      "type": "n8n-nodes-postproxy.postProxy",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "postProxyApi": {
+          "id": "1",
+          "name": "PostProxy API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"post_id\": $json.id, \"status\": $json.status, \"accounts\": $json.accounts } }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "PostProxy Create Post", "type": "main", "index": 0 }]]
+    },
+    "PostProxy Create Post": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+
