@@ -74,38 +74,6 @@ async function makeRequest(
   }
 }
 
-async function uploadFile(
-  this: IExecuteFunctions,
-  itemIndex: number,
-  binaryPropertyName: string,
-): Promise<any> {
-  const credentials = await this.getCredentials("postProxyApi");
-  const binaryData = this.helpers.assertBinaryData(itemIndex, binaryPropertyName);
-
-  // TODO: Replace with real API call when endpoint is ready
-  // Mock implementation for now
-  const dataBuffer = await this.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName);
-  const fileName = binaryData.fileName || "file";
-  const fileSize = dataBuffer.length;
-  
-  // Generate a mock URL (similar to what the real API would return)
-  const mockFileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const mockUrl = `https://storage.postproxy.dev/files/${mockFileId}/${encodeURIComponent(fileName)}`;
-
-  this.logger?.info(`[MOCK] Uploading file: ${fileName} (${fileSize} bytes)`);
-  this.logger?.info(`[MOCK] File URL: ${mockUrl}`);
-
-  // Return mock response structure
-  return {
-    id: mockFileId,
-    url: mockUrl,
-    filename: fileName,
-    size: fileSize,
-    content_type: binaryData.mimeType || "application/octet-stream",
-    uploaded_at: new Date().toISOString(),
-  };
-}
-
 export class PostProxy implements INodeType {
   description: INodeTypeDescription = {
     displayName: "PostProxy",
@@ -128,106 +96,50 @@ export class PostProxy implements INodeType {
     ],
     properties: [
       {
-        displayName: "Resource",
-        name: "resource",
+        displayName: "Publish Type",
+        name: "publishType",
         type: "options",
         noDataExpression: true,
         options: [
           {
-            name: "Account",
-            value: "account",
+            name: "Publish now",
+            value: "publish_now",
+            description: "Publish the post immediately",
           },
           {
-            name: "Post",
-            value: "post",
-          },
-          {
-            name: "File",
-            value: "file",
+            name: "Schedule",
+            value: "schedule",
+            description: "Schedule the post for later",
           },
         ],
-        default: "account",
-      },
-      {
-        displayName: "Operation",
-        name: "operation",
-        type: "options",
-        noDataExpression: true,
-        displayOptions: {
-          show: {
-            resource: ["account"],
-          },
-        },
-        options: [
-          {
-            name: "List",
-            value: "list",
-            description: "Get a list of connected social media accounts",
-          },
-        ],
-        default: "list",
-      },
-      {
-        displayName: "Operation",
-        name: "operation",
-        type: "options",
-        noDataExpression: true,
-        displayOptions: {
-          show: {
-            resource: ["post"],
-          },
-        },
-        options: [
-          {
-            name: "Create",
-            value: "create",
-            description:
-              "Create a new post to publish on social media accounts",
-          },
-        ],
-        default: "create",
-      },
-      {
-        displayName: "Type",
-        name: "type",
-        type: "options",
-        noDataExpression: true,
-        options: [
-          {
-            name: "Now",
-            value: "now",
-            description: "Publish immediately",
-          },
-          {
-            name: "Scheduled",
-            value: "scheduled",
-            description: "Schedule for later",
-          },
-        ],
-        default: "now",
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
+        default: "publish_now",
         description: "When to publish the post",
+      },
+      {
+        displayName: "Publish At",
+        name: "publish_at",
+        type: "dateTime",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            publishType: ["schedule"],
+          },
+        },
+        description:
+          "Schedule the post for a specific date and time (ISO 8601 format)",
       },
       {
         displayName: "Profile Group",
         name: "profileGroup",
         type: "options",
+        noDataExpression: true,
         typeOptions: {
           loadOptionsMethod: "getProfileGroups",
         },
         required: true,
-        default: "",
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
+        default: '',
+        placeholder: "Select a group",
         description: "Select the profile group to publish to",
       },
       {
@@ -236,15 +148,11 @@ export class PostProxy implements INodeType {
         type: "multiOptions",
         typeOptions: {
           loadOptionsMethod: "getProfilesForGroup",
+          loadOptionsDependOn: ["profileGroup"],
         },
         required: true,
         default: [],
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
+        placeholder: "Select profiles from the group",
         description: "Select the social media platforms to publish to",
       },
       {
@@ -256,12 +164,6 @@ export class PostProxy implements INodeType {
         },
         required: true,
         default: "",
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
         description: "The text content of the post",
       },
       {
@@ -272,98 +174,15 @@ export class PostProxy implements INodeType {
           multipleValues: true,
         },
         required: false,
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
         description:
           "Array of media URLs (images or videos) to attach to the post",
         default: [],
-      },
-      {
-        displayName: "Date",
-        name: "date",
-        type: "dateTime",
-        required: true,
-        default: "",
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-            type: ["scheduled"],
-          },
-        },
-        description:
-          "Schedule the post for a specific date and time (ISO 8601 format)",
-      },
-      {
-        displayName: "Operation",
-        name: "operation",
-        type: "options",
-        noDataExpression: true,
-        displayOptions: {
-          show: {
-            resource: ["file"],
-          },
-        },
-        options: [
-          {
-            name: "Upload",
-            value: "upload",
-            description: "Upload a file to PostProxy storage",
-          },
-        ],
-        default: "upload",
-      },
-      {
-        displayName: "Binary Property",
-        name: "binaryPropertyName",
-        type: "string",
-        required: true,
-        default: "data",
-        displayOptions: {
-          show: {
-            resource: ["file"],
-            operation: ["upload"],
-          },
-        },
-        description:
-          "Name of the binary property that contains the file to upload",
       },
     ],
   };
 
   methods = {
     loadOptions: {
-      async getAccounts(
-        this: ILoadOptionsFunctions,
-      ): Promise<Array<{ name: string; value: string }>> {
-        const credentials = await this.getCredentials("postProxyApi");
-
-        try {
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: `${BASE_URL}/profiles`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
-            },
-            json: true,
-            timeout: 30000,
-          });
-
-          const profiles = response.items || response || [];
-
-          return profiles.map((profile: any) => ({
-            name: `${profile.name || profile.username || profile.id} (${profile.type || "unknown"})`,
-            value: profile.id,
-          }));
-        } catch (error: any) {
-          throw new Error(`Failed to load profiles: ${error.message}`);
-        }
-      },
       async getProfileGroups(
         this: ILoadOptionsFunctions,
       ): Promise<Array<{ name: string; value: string }>> {
@@ -394,14 +213,31 @@ export class PostProxy implements INodeType {
       async getProfilesForGroup(
         this: ILoadOptionsFunctions,
       ): Promise<Array<{ name: string; value: string }>> {
-        const credentials = await this.getCredentials("postProxyApi");
-        const profileGroupId = this.getCurrentNodeParameter("profileGroup") as string | undefined;
-
-        if (!profileGroupId) {
-          return [];
-        }
-
         try {
+          const credentials = await this.getCredentials("postProxyApi");
+          
+          // Try to get profileGroupId from node parameters
+          let profileGroupId: string | undefined;
+          
+          try {
+            profileGroupId = this.getCurrentNodeParameter("profileGroup") as string | undefined;
+          } catch (e: any) {
+            // getCurrentNodeParameter may fail, try alternative methods
+            try {
+              profileGroupId = this.getNodeParameter("profileGroup", 0) as string | undefined;
+            } catch (e2: any) {
+              try {
+                const node = this.getNode();
+                profileGroupId = node?.parameters?.profileGroup as string | undefined;
+              } catch (e3: any) {
+                // All methods failed, profileGroupId remains undefined
+              }
+            }
+          }
+
+          // Load ALL profiles from API
+          // Note: loadOptionsDependOn doesn't reliably pass profileGroup value,
+          // so we load all profiles and filter client-side
           const response = await this.helpers.httpRequest({
             method: "GET",
             url: `${BASE_URL}/profiles`,
@@ -413,171 +249,95 @@ export class PostProxy implements INodeType {
             timeout: 30000,
           });
 
-          const allProfiles = response.items || response || [];
-          const groupIdNum = parseInt(profileGroupId);
+          // Extract profiles from response
+          let profiles = response.data || response.items || (Array.isArray(response) ? response : []);
 
-          // Filter profiles by profile_group_id
-          const groupProfiles = allProfiles.filter((profile: any) => {
-            return profile.profile_group_id === groupIdNum || profile.profile_group_id === profileGroupId;
-          });
-
-          // Extract unique platform types
-          const platformTypes = new Set<string>();
-          groupProfiles.forEach((profile: any) => {
-            if (profile.type) {
-              platformTypes.add(profile.type);
+          // Filter by profileGroupId if provided
+          if (profileGroupId && profileGroupId !== "") {
+            const groupIdNum = parseInt(profileGroupId, 10);
+            if (!isNaN(groupIdNum)) {
+              profiles = profiles.filter((profile: any) => profile.profile_group_id === groupIdNum);
             }
+          }
+
+          // Map profiles to dropdown options
+          return profiles.map((profile: any) => {
+            const profileName = profile.name || profile.username || `Profile ${profile.id}`;
+            const platformType = profile.network || profile.type || "unknown";
+            const displayName = `${profileName} (${platformType})`;
+            const profileId = profile.id != null ? String(profile.id) : "";
+            
+            return {
+              name: displayName,
+              value: profileId,
+            };
           });
-
-          // Map platform types to human-readable names
-          const platformNameMap: Record<string, string> = {
-            twitter: "Twitter",
-            instagram: "Instagram",
-            facebook: "Facebook",
-            linkedin: "LinkedIn",
-            tiktok: "TikTok",
-            youtube: "YouTube",
-            pinterest: "Pinterest",
-          };
-
-          return Array.from(platformTypes).map((type) => ({
-            name: platformNameMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1),
-            value: type,
-          }));
         } catch (error: any) {
-          throw new Error(`Failed to load profiles for group: ${error.message}`);
+          throw new Error(`Failed to load profiles: ${error.message}`);
         }
       },
     },
   };
 
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-    const resource = this.getNodeParameter("resource", 0) as string;
-    const operation = this.getNodeParameter("operation", 0) as string;
+    const content = this.getNodeParameter("content", 0) as string;
+    const publishType = this.getNodeParameter("publishType", 0) as string;
+    const profileGroupId = this.getNodeParameter("profileGroup", 0) as string;
+    const profiles = this.getNodeParameter("profiles", 0) as string[];
+    const mediaUrls = this.getNodeParameter("media", 0, []) as
+      | string[]
+      | undefined;
+    const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
 
-    if (resource === "account" && operation === "list") {
-      const response = await makeRequest.call(this, "GET", "/profiles");
-      const items = response.items || response || [];
-
-      return [
-        items.map((item: any) => ({
-          json: {
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            username: item.username,
-            ...item,
-          },
-        })),
-      ];
+    // Validation
+    if (!content || content.trim().length === 0) {
+      throw new Error("Content cannot be empty");
     }
 
-    if (resource === "post" && operation === "create") {
-      const content = this.getNodeParameter("content", 0) as string;
-      const type = this.getNodeParameter("type", 0) as string;
-      const profileGroupId = this.getNodeParameter("profileGroup", 0) as string;
-      const profiles = this.getNodeParameter("profiles", 0) as string[];
-      const mediaUrls = this.getNodeParameter("media", 0, []) as
-        | string[]
-        | undefined;
-      const date = this.getNodeParameter("date", 0, "") as string | undefined;
+    if (!profileGroupId) {
+      throw new Error("Profile Group must be selected");
+    }
 
-      // Validation
-      if (!content || content.trim().length === 0) {
-        throw new Error("Content cannot be empty");
+    if (!profiles || profiles.length === 0) {
+      throw new Error("At least one profile (platform) must be selected");
+    }
+
+    if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
+      throw new Error("Publish At date is required when Publish Type is 'Schedule'");
+    }
+
+    // Build request body according to API specification
+    const body: any = {
+      post: {
+        body: content.trim(),
+      },
+      profile_group_id: parseInt(profileGroupId),
+      profiles: profiles,
+    };
+
+    if (publishType === "schedule" && publishAt) {
+      body.post.scheduled_at = publishAt.trim();
+    }
+
+    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+      const filteredUrls = mediaUrls
+        .filter(
+          (url) => url && typeof url === "string" && url.trim().length > 0,
+        )
+        .map((url) => url.trim());
+      if (filteredUrls.length > 0) {
+        body.media = filteredUrls;
       }
+    }
 
-      if (!profileGroupId) {
-        throw new Error("Profile Group must be selected");
-      }
+    const response = await makeRequest.call(this, "POST", "/posts", body);
 
-      if (!profiles || profiles.length === 0) {
-        throw new Error("At least one profile (platform) must be selected");
-      }
-
-      if (type === "scheduled" && (!date || date.trim().length === 0)) {
-        throw new Error("Date is required when Type is 'Scheduled'");
-      }
-
-      // Build request body according to API specification
-      const body: any = {
-        post: {
-          body: content.trim(),
+    return [
+      [
+        {
+          json: response,
         },
-        profile_group_id: parseInt(profileGroupId),
-        profiles: profiles,
-      };
-
-      if (type === "scheduled" && date) {
-        body.post.scheduled_at = date.trim();
-      }
-
-      if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
-        const filteredUrls = mediaUrls
-          .filter(
-            (url) => url && typeof url === "string" && url.trim().length > 0,
-          )
-          .map((url) => url.trim());
-        if (filteredUrls.length > 0) {
-          body.media = filteredUrls;
-        }
-      }
-
-      const response = await makeRequest.call(this, "POST", "/posts", body);
-
-      return [
-        [
-          {
-            json: response,
-          },
-        ],
-      ];
-    }
-
-    if (resource === "file" && operation === "upload") {
-      const binaryPropertyName = this.getNodeParameter(
-        "binaryPropertyName",
-        0,
-      ) as string;
-
-      const items = this.getInputData();
-      const returnData: INodeExecutionData[] = [];
-
-      for (let i = 0; i < items.length; i++) {
-        try {
-          const response = await uploadFile.call(
-            this,
-            i,
-            binaryPropertyName,
-          );
-
-          returnData.push({
-            json: {
-              url: response.url || response.data?.url || response.file?.url,
-              id: response.id || response.data?.id || response.file?.id,
-              ...response,
-            },
-            binary: items[i].binary,
-          });
-        } catch (error: any) {
-          if (this.continueOnFail()) {
-            returnData.push({
-              json: {
-                error: error.message,
-              },
-              binary: items[i].binary,
-            });
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      return [returnData];
-    }
-
-    throw new Error(
-      `Unknown resource/operation combination: ${resource}/${operation}`,
-    );
+      ],
+    ];
   }
 }
