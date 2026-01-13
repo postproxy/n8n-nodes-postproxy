@@ -82,7 +82,7 @@ export class PostProxy implements INodeType {
     group: ["transform"],
     version: 1,
     description:
-      "Unified API for publishing and scheduling posts across multiple social media platforms",
+      "Publish and schedule posts across multiple social media platforms",
     defaults: {
       name: "PostProxy",
     },
@@ -96,10 +96,119 @@ export class PostProxy implements INodeType {
     ],
     properties: [
       {
+        displayName: "Resource",
+        name: "resource",
+        type: "options",
+        noDataExpression: true,
+        options: [
+          {
+            name: "Post",
+            value: "post",
+          },
+          {
+            name: "Profile",
+            value: "profile",
+          },
+          {
+            name: "Profile Group",
+            value: "profileGroup",
+          },
+        ],
+        default: "post",
+        description: "The resource to operate on",
+      },
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["post"],
+          },
+        },
+        options: [
+          {
+            name: "Create",
+            value: "create",
+            description: "Create and publish or schedule a post",
+            action: "Create a post",
+          },
+          {
+            name: "Get Post Details",
+            value: "get",
+            description: "Get a post by ID",
+            action: "Get post details",
+          },
+          {
+            name: "List Posts",
+            value: "getMany",
+            description: "Get many posts",
+            action: "List posts",
+          },
+        ],
+        default: "create",
+        description: "The operation to perform",
+      },
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+          },
+        },
+        options: [
+          {
+            name: "Get Profile Details",
+            value: "get",
+            description: "Get a profile by ID",
+            action: "Get profile details",
+          },
+          {
+            name: "List Profiles",
+            value: "getMany",
+            description: "Get many profiles",
+            action: "List profiles",
+          },
+        ],
+        default: "getMany",
+        description: "The operation to perform",
+      },
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+          },
+        },
+        options: [
+          {
+            name: "List Profile Groups",
+            value: "getMany",
+            description: "Get many profile groups",
+            action: "List profile groups",
+          },
+        ],
+        default: "getMany",
+        description: "The operation to perform",
+      },
+      {
         displayName: "Publish Type",
         name: "publishType",
         type: "options",
         noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
         options: [
           {
             name: "Publish now",
@@ -123,6 +232,8 @@ export class PostProxy implements INodeType {
         default: "",
         displayOptions: {
           show: {
+            resource: ["post"],
+            operation: ["create"],
             publishType: ["schedule"],
           },
         },
@@ -134,6 +245,12 @@ export class PostProxy implements INodeType {
         name: "profileGroup",
         type: "options",
         noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
         typeOptions: {
           loadOptionsMethod: "getProfileGroups",
         },
@@ -146,6 +263,12 @@ export class PostProxy implements INodeType {
         displayName: "Profile",
         name: "profiles",
         type: "multiOptions",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
         typeOptions: {
           loadOptionsMethod: "getProfilesForGroup",
           loadOptionsDependOn: ["profileGroup"],
@@ -159,6 +282,12 @@ export class PostProxy implements INodeType {
         displayName: "Content",
         name: "content",
         type: "string",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
         typeOptions: {
           rows: 4,
         },
@@ -170,6 +299,12 @@ export class PostProxy implements INodeType {
         displayName: "Media URLs",
         name: "media",
         type: "string",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
         typeOptions: {
           multipleValues: true,
         },
@@ -177,6 +312,132 @@ export class PostProxy implements INodeType {
         description:
           "Array of media URLs (images or videos) to attach to the post",
         default: [],
+      },
+      // Parameters for Post - Get operation
+      {
+        displayName: "Post ID",
+        name: "postId",
+        type: "string",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["get"],
+          },
+        },
+        required: true,
+        default: "",
+        description: "The ID of the post",
+      },
+      // Parameters for Post - Get Many operation
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getMany"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      {
+        displayName: "Limit",
+        name: "limit",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 50,
+        description: "Max number of results to return",
+      },
+      // Parameters for Profile - Get operation
+      {
+        displayName: "Profile ID",
+        name: "profileId",
+        type: "string",
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+            operation: ["get"],
+          },
+        },
+        required: true,
+        default: "",
+        description: "The ID of the profile",
+      },
+      // Parameters for Profile - Get Many operation
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+            operation: ["getMany"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      {
+        displayName: "Limit",
+        name: "limit",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 50,
+        description: "Max number of results to return",
+      },
+      // Parameters for Profile Group - Get Many operation
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["getMany"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      {
+        displayName: "Limit",
+        name: "limit",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 50,
+        description: "Max number of results to return",
       },
     ],
   };
@@ -280,62 +541,128 @@ export class PostProxy implements INodeType {
   };
 
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-    const content = this.getNodeParameter("content", 0) as string;
-    const publishType = this.getNodeParameter("publishType", 0) as string;
-    const profileGroupId = this.getNodeParameter("profileGroup", 0) as string;
-    const profiles = this.getNodeParameter("profiles", 0) as string[];
-    const mediaUrls = this.getNodeParameter("media", 0, []) as
-      | string[]
-      | undefined;
-    const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
+    const resource = this.getNodeParameter("resource", 0) as string;
+    const operation = this.getNodeParameter("operation", 0) as string;
 
-    // Validation
-    if (!content || content.trim().length === 0) {
-      throw new Error("Content cannot be empty");
-    }
+    let responseData: any;
 
-    if (!profileGroupId) {
-      throw new Error("Profile Group must be selected");
-    }
+    // POST RESOURCE
+    if (resource === "post") {
+      if (operation === "create") {
+        const content = this.getNodeParameter("content", 0) as string;
+        const publishType = this.getNodeParameter("publishType", 0) as string;
+        const profileGroupId = this.getNodeParameter("profileGroup", 0) as string;
+        const profiles = this.getNodeParameter("profiles", 0) as string[];
+        const mediaUrls = this.getNodeParameter("media", 0, []) as
+          | string[]
+          | undefined;
+        const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
 
-    if (!profiles || profiles.length === 0) {
-      throw new Error("At least one profile (platform) must be selected");
-    }
+        // Validation
+        if (!content || content.trim().length === 0) {
+          throw new Error("Content cannot be empty");
+        }
 
-    if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
-      throw new Error("Publish At date is required when Publish Type is 'Schedule'");
-    }
+        if (!profileGroupId) {
+          throw new Error("Profile Group must be selected");
+        }
 
-    // Build request body according to API specification
-    const body: any = {
-      post: {
-        body: content.trim(),
-      },
-      profile_group_id: parseInt(profileGroupId),
-      profiles: profiles,
-    };
+        if (!profiles || profiles.length === 0) {
+          throw new Error("At least one profile (platform) must be selected");
+        }
 
-    if (publishType === "schedule" && publishAt) {
-      body.post.scheduled_at = publishAt.trim();
-    }
+        if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
+          throw new Error("Publish At date is required when Publish Type is 'Schedule'");
+        }
 
-    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
-      const filteredUrls = mediaUrls
-        .filter(
-          (url) => url && typeof url === "string" && url.trim().length > 0,
-        )
-        .map((url) => url.trim());
-      if (filteredUrls.length > 0) {
-        body.media = filteredUrls;
+        // Build request body according to API specification
+        const body: any = {
+          post: {
+            body: content.trim(),
+          },
+          profile_group_id: parseInt(profileGroupId),
+          profiles: profiles,
+        };
+
+        if (publishType === "schedule" && publishAt) {
+          body.post.scheduled_at = publishAt.trim();
+        }
+
+        if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+          const filteredUrls = mediaUrls
+            .filter(
+              (url) => url && typeof url === "string" && url.trim().length > 0,
+            )
+            .map((url) => url.trim());
+          if (filteredUrls.length > 0) {
+            body.media = filteredUrls;
+          }
+        }
+
+        responseData = await makeRequest.call(this, "POST", "/posts", body);
+      } else if (operation === "get") {
+        const postId = this.getNodeParameter("postId", 0) as string;
+        responseData = await makeRequest.call(this, "GET", `/posts/${postId}`);
+      } else if (operation === "getMany") {
+        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
+        responseData = await makeRequest.call(this, "GET", "/posts");
+
+        if (!returnAll) {
+          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
+          responseData = {
+            ...responseData,
+            data: items.slice(0, limit),
+          };
+        }
       }
     }
 
-    const response = await makeRequest.call(this, "POST", "/posts", body);
+    // PROFILE RESOURCE
+    else if (resource === "profile") {
+      if (operation === "get") {
+        const profileId = this.getNodeParameter("profileId", 0) as string;
+        responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
+      } else if (operation === "getMany") {
+        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
+        responseData = await makeRequest.call(this, "GET", "/profiles");
+
+        if (!returnAll) {
+          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
+          responseData = {
+            ...responseData,
+            data: items.slice(0, limit),
+          };
+        }
+      }
+    }
+
+    // PROFILE GROUP RESOURCE
+    else if (resource === "profileGroup") {
+      if (operation === "getMany") {
+        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
+        responseData = await makeRequest.call(this, "GET", "/profile_groups/");
+
+        if (!returnAll) {
+          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
+          responseData = {
+            ...responseData,
+            data: items.slice(0, limit),
+          };
+        }
+      }
+    }
+
+    if (responseData === undefined) {
+      throw new Error(`The operation "${operation}" for resource "${resource}" is not supported`);
+    }
 
     return [
       [
         {
-          json: response,
+          json: responseData,
         },
       ],
     ];
