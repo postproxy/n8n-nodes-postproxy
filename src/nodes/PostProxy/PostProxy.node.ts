@@ -7,7 +7,7 @@ import {
   IHttpRequestMethods,
 } from "n8n-workflow";
 
-const BASE_URL = "https://api.postproxy.dev/v1";
+const BASE_URL = "https://api.postproxy.dev/api";
 
 interface PostProxyError {
   message?: string;
@@ -188,6 +188,66 @@ export class PostProxy implements INodeType {
         default: "create",
       },
       {
+        displayName: "Type",
+        name: "type",
+        type: "options",
+        noDataExpression: true,
+        options: [
+          {
+            name: "Now",
+            value: "now",
+            description: "Publish immediately",
+          },
+          {
+            name: "Scheduled",
+            value: "scheduled",
+            description: "Schedule for later",
+          },
+        ],
+        default: "now",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        description: "When to publish the post",
+      },
+      {
+        displayName: "Profile Group",
+        name: "profileGroup",
+        type: "options",
+        typeOptions: {
+          loadOptionsMethod: "getProfileGroups",
+        },
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        description: "Select the profile group to publish to",
+      },
+      {
+        displayName: "Profile",
+        name: "profiles",
+        type: "multiOptions",
+        typeOptions: {
+          loadOptionsMethod: "getProfilesForGroup",
+        },
+        required: true,
+        default: [],
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        description: "Select the social media platforms to publish to",
+      },
+      {
         displayName: "Content",
         name: "content",
         type: "string",
@@ -203,23 +263,6 @@ export class PostProxy implements INodeType {
           },
         },
         description: "The text content of the post",
-      },
-      {
-        displayName: "Account IDs",
-        name: "accounts",
-        type: "multiOptions",
-        typeOptions: {
-          loadOptionsMethod: "getAccounts",
-        },
-        required: true,
-        default: [],
-        displayOptions: {
-          show: {
-            resource: ["post"],
-            operation: ["create"],
-          },
-        },
-        description: "Select the social media accounts to publish to",
       },
       {
         displayName: "Media URLs",
@@ -240,19 +283,20 @@ export class PostProxy implements INodeType {
         default: [],
       },
       {
-        displayName: "Publish At",
-        name: "publish_at",
+        displayName: "Date",
+        name: "date",
         type: "dateTime",
-        required: false,
+        required: true,
         default: "",
         displayOptions: {
           show: {
             resource: ["post"],
             operation: ["create"],
+            type: ["scheduled"],
           },
         },
         description:
-          "Schedule the post for a specific date and time (ISO 8601 format). Leave empty for immediate publishing",
+          "Schedule the post for a specific date and time (ISO 8601 format)",
       },
       {
         displayName: "Operation",
@@ -301,7 +345,7 @@ export class PostProxy implements INodeType {
         try {
           const response = await this.helpers.httpRequest({
             method: "GET",
-            url: `${BASE_URL}/accounts`,
+            url: `${BASE_URL}/profiles`,
             headers: {
               Authorization: `Bearer ${credentials.apiKey}`,
               "Content-Type": "application/json",
@@ -310,14 +354,98 @@ export class PostProxy implements INodeType {
             timeout: 30000,
           });
 
-          const accounts = response.items || response || [];
+          const profiles = response.items || response || [];
 
-          return accounts.map((account: any) => ({
-            name: `${account.name || account.username || account.id} (${account.type || "unknown"})`,
-            value: account.id,
+          return profiles.map((profile: any) => ({
+            name: `${profile.name || profile.username || profile.id} (${profile.type || "unknown"})`,
+            value: profile.id,
           }));
         } catch (error: any) {
-          throw new Error(`Failed to load accounts: ${error.message}`);
+          throw new Error(`Failed to load profiles: ${error.message}`);
+        }
+      },
+      async getProfileGroups(
+        this: ILoadOptionsFunctions,
+      ): Promise<Array<{ name: string; value: string }>> {
+        const credentials = await this.getCredentials("postProxyApi");
+
+        try {
+          const response = await this.helpers.httpRequest({
+            method: "GET",
+            url: `${BASE_URL}/profile_groups/`,
+            headers: {
+              Authorization: `Bearer ${credentials.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            json: true,
+            timeout: 30000,
+          });
+
+          const groups = response.data || [];
+
+          return groups.map((group: any) => ({
+            name: group.name || `Group ${group.id}`,
+            value: group.id.toString(),
+          }));
+        } catch (error: any) {
+          throw new Error(`Failed to load profile groups: ${error.message}`);
+        }
+      },
+      async getProfilesForGroup(
+        this: ILoadOptionsFunctions,
+      ): Promise<Array<{ name: string; value: string }>> {
+        const credentials = await this.getCredentials("postProxyApi");
+        const profileGroupId = this.getCurrentNodeParameter("profileGroup") as string | undefined;
+
+        if (!profileGroupId) {
+          return [];
+        }
+
+        try {
+          const response = await this.helpers.httpRequest({
+            method: "GET",
+            url: `${BASE_URL}/profiles`,
+            headers: {
+              Authorization: `Bearer ${credentials.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            json: true,
+            timeout: 30000,
+          });
+
+          const allProfiles = response.items || response || [];
+          const groupIdNum = parseInt(profileGroupId);
+
+          // Filter profiles by profile_group_id
+          const groupProfiles = allProfiles.filter((profile: any) => {
+            return profile.profile_group_id === groupIdNum || profile.profile_group_id === profileGroupId;
+          });
+
+          // Extract unique platform types
+          const platformTypes = new Set<string>();
+          groupProfiles.forEach((profile: any) => {
+            if (profile.type) {
+              platformTypes.add(profile.type);
+            }
+          });
+
+          // Map platform types to human-readable names
+          const platformNameMap: Record<string, string> = {
+            twitter: "Twitter",
+            instagram: "Instagram",
+            facebook: "Facebook",
+            linkedin: "LinkedIn",
+            tiktok: "TikTok",
+            youtube: "YouTube",
+            pinterest: "Pinterest",
+          };
+
+          return Array.from(platformTypes).map((type) => ({
+            name: platformNameMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1),
+            value: type,
+          }));
+        } catch (error: any) {
+          throw new Error(`Failed to load profiles for group: ${error.message}`);
         }
       },
     },
@@ -328,7 +456,7 @@ export class PostProxy implements INodeType {
     const operation = this.getNodeParameter("operation", 0) as string;
 
     if (resource === "account" && operation === "list") {
-      const response = await makeRequest.call(this, "GET", "/accounts");
+      const response = await makeRequest.call(this, "GET", "/profiles");
       const items = response.items || response || [];
 
       return [
@@ -346,26 +474,43 @@ export class PostProxy implements INodeType {
 
     if (resource === "post" && operation === "create") {
       const content = this.getNodeParameter("content", 0) as string;
-      const accountIds = this.getNodeParameter("accounts", 0) as string[];
+      const type = this.getNodeParameter("type", 0) as string;
+      const profileGroupId = this.getNodeParameter("profileGroup", 0) as string;
+      const profiles = this.getNodeParameter("profiles", 0) as string[];
       const mediaUrls = this.getNodeParameter("media", 0, []) as
         | string[]
         | undefined;
-      const publishAt = this.getNodeParameter("publish_at", 0) as
-        | string
-        | undefined;
+      const date = this.getNodeParameter("date", 0, "") as string | undefined;
 
-      if (!accountIds || accountIds.length === 0) {
-        throw new Error("At least one account must be selected");
-      }
-
+      // Validation
       if (!content || content.trim().length === 0) {
         throw new Error("Content cannot be empty");
       }
 
+      if (!profileGroupId) {
+        throw new Error("Profile Group must be selected");
+      }
+
+      if (!profiles || profiles.length === 0) {
+        throw new Error("At least one profile (platform) must be selected");
+      }
+
+      if (type === "scheduled" && (!date || date.trim().length === 0)) {
+        throw new Error("Date is required when Type is 'Scheduled'");
+      }
+
+      // Build request body according to API specification
       const body: any = {
-        content: content.trim(),
-        accounts: accountIds,
+        post: {
+          body: content.trim(),
+        },
+        profile_group_id: parseInt(profileGroupId),
+        profiles: profiles,
       };
+
+      if (type === "scheduled" && date) {
+        body.post.scheduled_at = date.trim();
+      }
 
       if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
         const filteredUrls = mediaUrls
@@ -376,10 +521,6 @@ export class PostProxy implements INodeType {
         if (filteredUrls.length > 0) {
           body.media = filteredUrls;
         }
-      }
-
-      if (publishAt && publishAt.trim().length > 0) {
-        body.publish_at = publishAt.trim();
       }
 
       const response = await makeRequest.call(this, "POST", "/posts", body);
