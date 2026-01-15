@@ -19,21 +19,64 @@ interface PostProxyError {
 
 // Helper function to simplify post response
 function simplifyPost(post: any): any {
-  return {
+  // Handle both response formats: 
+  // - API GET /posts/{id} returns: {id, content, created_at, networks: [{network, status, attempted_at}]}
+  // - API POST /posts returns: {id, post: {body, scheduled_at}, status, accounts: [...]}
+  
+  const content = post.content || post.post?.body || post.body || "";
+  const networks = post.networks || post.accounts || [];
+  
+  const result: any = {
     id: post.id,
-    content: post.post?.body || post.body,
-    status: post.status,
-    scheduled_at: post.post?.scheduled_at || post.scheduled_at,
+    content: content,
     created_at: post.created_at,
-    updated_at: post.updated_at,
-    profile_group_id: post.profile_group_id,
-    account_statuses: (post.accounts || []).map((account: any) => ({
-      profile_id: account.profile_id,
-      status: account.status,
-      error: account.error,
-      published_url: account.published_url,
-    })),
   };
+  
+  // Add optional fields only if they exist
+  if (post.status !== undefined) {
+    result.status = post.status;
+  }
+  
+  if (post.scheduled_at !== undefined || post.post?.scheduled_at !== undefined) {
+    result.scheduled_at = post.post?.scheduled_at || post.scheduled_at;
+  }
+  
+  if (post.updated_at !== undefined) {
+    result.updated_at = post.updated_at;
+  }
+  
+  if (post.profile_group_id !== undefined) {
+    result.profile_group_id = post.profile_group_id;
+  }
+  
+  // Map both 'networks' and 'accounts' formats
+  result.network_statuses = networks.map((item: any) => {
+    const mapped: any = {
+      network: item.network || item.type,
+      status: item.status,
+    };
+    
+    // Add optional fields only if they exist
+    if (item.attempted_at !== undefined) {
+      mapped.attempted_at = item.attempted_at;
+    }
+    
+    if (item.profile_id !== undefined) {
+      mapped.profile_id = item.profile_id;
+    }
+    
+    if (item.error !== undefined) {
+      mapped.error = item.error;
+    }
+    
+    if (item.published_url !== undefined) {
+      mapped.published_url = item.published_url;
+    }
+    
+    return mapped;
+  });
+  
+  return result;
 }
 
 // Helper function to simplify profile response
