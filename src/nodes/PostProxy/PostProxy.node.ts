@@ -7,6 +7,8 @@ import {
   IHttpRequestMethods,
   INodeListSearchResult,
   INodeListSearchItems,
+  NodeApiError,
+  NodeOperationError,
 } from "n8n-workflow";
 
 const BASE_URL = "https://api.postproxy.dev/api";
@@ -136,10 +138,11 @@ async function makeRequest(
     const requestId = error.response?.headers?.["x-request-id"];
 
     let errorMessage = "PostProxy API request failed";
+    let description = "";
 
     if (requestId) {
       this.logger?.error(`PostProxy request_id: ${requestId}`);
-      errorMessage += ` (request_id: ${requestId})`;
+      description += `Request ID: ${requestId}\n`;
     }
 
     if (statusCode) {
@@ -147,18 +150,34 @@ async function makeRequest(
       const apiMessage = errorBody.message || errorBody.error || error.message;
 
       if (statusCode >= 400 && statusCode < 500) {
-        errorMessage = `PostProxy API error (${statusCode}): ${apiMessage}`;
+        errorMessage = `PostProxy API error (${statusCode})`;
+        description += apiMessage || "Client error";
+        
+        if (statusCode === 401) {
+          description += "\n\nPlease check your API credentials.";
+        } else if (statusCode === 404) {
+          description += "\n\nThe requested resource was not found.";
+        } else if (statusCode === 429) {
+          description += "\n\nRate limit exceeded. Please try again later.";
+        }
       } else if (statusCode >= 500) {
-        errorMessage = `PostProxy API server error (${statusCode}): ${apiMessage || "Internal server error"}`;
+        errorMessage = `PostProxy API server error (${statusCode})`;
+        description += apiMessage || "Internal server error";
+        description += "\n\nPlease try again later or contact PostProxy support.";
       }
     } else if (error.code === "ETIMEDOUT" || error.code === "ECONNABORTED") {
       errorMessage = "PostProxy API request timed out";
+      description = "The request took too long to complete. Please try again.";
     } else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-      errorMessage =
-        "PostProxy API connection failed. Please check your network connection.";
+      errorMessage = "PostProxy API connection failed";
+      description = "Could not connect to PostProxy API. Please check your network connection.";
     }
 
-    throw new Error(errorMessage);
+    throw new NodeApiError(this.getNode(), error, {
+      message: errorMessage,
+      description: description || error.message,
+      httpCode: String(statusCode || ""),
+    });
   }
 }
 
@@ -801,7 +820,10 @@ export class PostProxy implements INodeType {
 
           return { results };
         } catch (error: any) {
-          throw new Error(`Failed to search posts: ${error.message}`);
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to search posts",
+            description: error.message,
+          });
         }
       },
       async searchProfiles(
@@ -844,7 +866,10 @@ export class PostProxy implements INodeType {
 
           return { results };
         } catch (error: any) {
-          throw new Error(`Failed to search profiles: ${error.message}`);
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to search profiles",
+            description: error.message,
+          });
         }
       },
       async searchProfileGroups(
@@ -882,7 +907,10 @@ export class PostProxy implements INodeType {
 
           return { results };
         } catch (error: any) {
-          throw new Error(`Failed to search profile groups: ${error.message}`);
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to search profile groups",
+            description: error.message,
+          });
         }
       },
     },
@@ -911,7 +939,10 @@ export class PostProxy implements INodeType {
             value: group.id.toString(),
           }));
         } catch (error: any) {
-          throw new Error(`Failed to load profile groups: ${error.message}`);
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to load profile groups",
+            description: error.message,
+          });
         }
       },
       async getProfilesForGroup(
@@ -977,7 +1008,10 @@ export class PostProxy implements INodeType {
             };
           });
         } catch (error: any) {
-          throw new Error(`Failed to load profiles: ${error.message}`);
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to load profiles",
+            description: error.message,
+          });
         }
       },
     },
@@ -1004,19 +1038,35 @@ export class PostProxy implements INodeType {
 
         // Validation
         if (!content || content.trim().length === 0) {
-          throw new Error("Content cannot be empty");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Content cannot be empty",
+            { description: "Please provide post content in the 'Content' field." }
+          );
         }
 
         if (!profileGroupId) {
-          throw new Error("Profile Group must be selected");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Profile Group must be selected",
+            { description: "Please select a profile group to publish to." }
+          );
         }
 
         if (!profiles || profiles.length === 0) {
-          throw new Error("At least one profile (platform) must be selected");
+          throw new NodeOperationError(
+            this.getNode(),
+            "At least one profile must be selected",
+            { description: "Please select at least one social media profile to publish to." }
+          );
         }
 
         if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
-          throw new Error("Publish At date is required when Publish Type is 'Schedule'");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Publish At date is required",
+            { description: "When Publish Type is 'Schedule', you must provide a Publish At date." }
+          );
         }
 
         // Build request body according to API specification
@@ -1049,7 +1099,11 @@ export class PostProxy implements INodeType {
         const postId = extractResourceLocatorValue(postIdRaw);
         
         if (!postId) {
-          throw new Error("Post ID is required");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Post ID is required",
+            { description: "Please provide a valid Post ID." }
+          );
         }
         
         responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}`);
@@ -1058,7 +1112,11 @@ export class PostProxy implements INodeType {
         const postId = extractResourceLocatorValue(postIdRaw);
         
         if (!postId) {
-          throw new Error("Post ID is required");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Post ID is required",
+            { description: "Please provide a valid Post ID." }
+          );
         }
         
         responseData = await makeRequest.call(this, "GET", `/posts/${postId}`);
@@ -1094,7 +1152,11 @@ export class PostProxy implements INodeType {
         const updateFields = this.getNodeParameter("updateFields", 0, {}) as any;
         
         if (!postId) {
-          throw new Error("Post ID is required");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Post ID is required",
+            { description: "Please provide a valid Post ID." }
+          );
         }
         
         // Build update body
@@ -1112,7 +1174,11 @@ export class PostProxy implements INodeType {
         
         // Ensure at least one field is being updated
         if (Object.keys(body.post).length === 0) {
-          throw new Error("At least one field must be provided to update");
+          throw new NodeOperationError(
+            this.getNode(),
+            "At least one field must be provided to update",
+            { description: "Please provide at least one field (Content or Scheduled At) to update the post." }
+          );
         }
         
         responseData = await makeRequest.call(this, "PATCH", `/posts/${postId}`, body);
@@ -1126,7 +1192,11 @@ export class PostProxy implements INodeType {
         const profileId = extractResourceLocatorValue(profileIdRaw);
         
         if (!profileId) {
-          throw new Error("Profile ID is required");
+          throw new NodeOperationError(
+            this.getNode(),
+            "Profile ID is required",
+            { description: "Please provide a valid Profile ID." }
+          );
         }
         
         responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
@@ -1177,7 +1247,11 @@ export class PostProxy implements INodeType {
     }
 
     if (responseData === undefined) {
-      throw new Error(`The operation "${operation}" for resource "${resource}" is not supported`);
+      throw new NodeOperationError(
+        this.getNode(),
+        `The operation "${operation}" for resource "${resource}" is not supported`,
+        { description: "This combination of resource and operation is not available." }
+      );
     }
 
     return [
