@@ -19,10 +19,15 @@
       "parameters": {
         "resource": "post",
         "operation": "create",
+        "publishType": "={{ $json.body.publish_at ? 'schedule' : 'publish_now' }}",
+        "publish_at": "={{ $json.body.publish_at || '' }}",
+        "profileGroup": {
+          "mode": "id",
+          "value": "={{ $json.body.profile_group_id }}"
+        },
+        "profiles": "={{ $json.body.profiles || [] }}",
         "content": "={{ $json.body.content }}",
-        "accounts": "={{ $json.body.accounts || [] }}",
-        "media": "={{ $json.body.media || [] }}",
-        "publish_at": "={{ $json.body.publish_at || '' }}"
+        "media": "={{ $json.body.media || [] }}"
       },
       "id": "postproxy-create",
       "name": "PostProxy Create Post",

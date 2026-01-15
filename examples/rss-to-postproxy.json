@@ -26,8 +26,13 @@
       "parameters": {
         "resource": "post",
         "operation": "create",
+        "publishType": "publish_now",
+        "profileGroup": {
+          "mode": "list",
+          "value": "1"
+        },
+        "profiles": ["profile-1", "profile-2"],
         "content": "={{ $json.content }}",
-        "accounts": [],
         "media": []
       },
       "id": "postproxy-create",

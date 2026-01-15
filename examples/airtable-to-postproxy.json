@@ -38,10 +38,15 @@
       "parameters": {
         "resource": "post",
         "operation": "create",
+        "publishType": "={{ $json.fields.PublishAt ? 'schedule' : 'publish_now' }}",
+        "publish_at": "={{ $json.fields.PublishAt || '' }}",
+        "profileGroup": {
+          "mode": "id",
+          "value": "={{ $json.fields.ProfileGroupID }}"
+        },
+        "profiles": "={{ $json.fields.ProfileIDs ? $json.fields.ProfileIDs.split(',') : [] }}",
         "content": "={{ $json.fields.Content }}",
-        "accounts": "={{ $json.fields.AccountIDs ? $json.fields.AccountIDs.split(',') : [] }}",
-        "media": "={{ $json.fields.MediaURLs ? $json.fields.MediaURLs.split(',') : [] }}",
-        "publish_at": "={{ $json.fields.PublishAt || '' }}"
+        "media": "={{ $json.fields.MediaURLs ? $json.fields.MediaURLs.split(',') : [] }}"
       },
       "id": "postproxy-create",
       "name": "PostProxy Create Post",
