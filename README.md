@@ -15,13 +15,18 @@ PostProxy is a unified API that simplifies social media content publishing by:
 ## Features
 
 - **List Profile Groups**: Get all your profile groups to organize your social media profiles
-- **List Profiles**: Get all connected social media profiles across all platforms
-- **Get Profile Details**: Get detailed information about a specific profile
+- **List Profiles**: Get all connected social media profiles across all platforms with pagination
+- **Get Profile Details**: Get detailed information about a specific profile (including `expires_at` and `post_count`)
 - **Create Posts**: Publish posts to multiple profiles via profile groups
-- **Get Post Details**: Get detailed information about a specific post
-- **List Posts**: Get all your posts with pagination support
+- **Get Post Details**: Get detailed information about a specific post with platform-specific status and insights
+- **List Posts**: Get all your posts with full pagination support (`page`, `per_page`, `total`)
+- **Update Posts**: Update post content and scheduled time
+- **Delete Posts**: Delete posts by ID
 - **Media Support**: Attach images or videos to your posts via URLs
+- **Platform Parameters**: Pass platform-specific parameters (e.g., alt text, captions) when creating posts
 - **Scheduled Publishing**: Schedule posts for specific dates and times
+- **Post Status Tracking**: Track post status (`pending`, `processed`, `draft`) and platform-specific statuses
+- **Insights**: Access platform insights (impressions, engagement) when available
 - **Error Handling**: Comprehensive error handling with request ID logging
 
 ## Requirements
@@ -122,12 +127,14 @@ Create a simple text post to profiles in a group:
   "resource": "post",
   "operation": "create",
   "publishType": "publish_now",
-  "profileGroup": "123",
-  "profiles": ["profile-456", "profile-789"],
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR", "y7dU5N"],
   "content": "Hello from n8n! 🚀",
   "media": []
 }
 ```
+
+**Note**: IDs are now alphanumeric strings (e.g., `"zbNFmz"`, `"yqWUvR"`), not numeric.
 
 ### Example 2: Scheduled Post with Media
 
@@ -139,27 +146,52 @@ Schedule a post with an image for multiple profiles:
   "operation": "create",
   "publishType": "schedule",
   "publish_at": "2024-12-25T10:00:00Z",
-  "profileGroup": "123",
-  "profiles": ["profile-456"],
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR"],
   "content": "Check out our new product!",
   "media": ["https://example.com/image.jpg"]
 }
 ```
 
-### Example 3: List Posts
+### Example 3: Post with Platform Parameters
 
-Get a list of your posts:
+Create a post with platform-specific parameters:
+
+```json
+{
+  "resource": "post",
+  "operation": "create",
+  "publishType": "publish_now",
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR"],
+  "content": "Check out our new product!",
+  "media": ["https://example.com/image.jpg"],
+  "platformParams": "{\"alt_text\": \"Product image description\"}"
+}
+```
+
+### Example 4: List Posts with Pagination
+
+Get a list of your posts with pagination:
 
 ```json
 {
   "resource": "post",
   "operation": "getMany",
   "returnAll": false,
-  "limit": 10
+  "limit": 10,
+  "page": 0,
+  "per_page": 10
 }
 ```
 
-### Example 4: Get Post Details
+**Response includes**:
+- `total`: Total number of posts
+- `page`: Current page number (0-indexed)
+- `per_page`: Items per page
+- `data`: Array of posts with fields: `id`, `content`, `status`, `draft`, `scheduled_at`, `created_at`, `platforms` (with `network`, `status`, `params`, `attempted_at`, `insights`)
+
+### Example 5: Get Post Details
 
 Get details of a specific post:
 
@@ -167,9 +199,19 @@ Get details of a specific post:
 {
   "resource": "post",
   "operation": "get",
-  "postId": "post-123"
+  "postId": "NWLtbA",
+  "simplify": true
 }
 ```
+
+**Response fields**:
+- `id`: Post ID (alphanumeric string)
+- `content`: Post content
+- `status`: Post status (`pending`, `processed`, etc.)
+- `draft`: Whether post is a draft
+- `scheduled_at`: Scheduled publish time (if scheduled)
+- `created_at`: Creation timestamp
+- `platforms`: Array with platform-specific information including `network`, `status`, `params`, `attempted_at`, and `insights`
 
 ## Understanding Profile Groups
 
@@ -224,10 +266,30 @@ For more detailed examples, see the [examples/](examples/) directory.
 PostProxy automatically manages rate limits and retries for you. When you create a post:
 
 - If rate limits are hit, PostProxy will queue the post and publish it when quota is available
-- Posts may show as "processing" initially - this is normal
+- Posts may show as "pending" or "processing" initially - this is normal
 - PostProxy handles retries automatically, so you don't need to worry about temporary failures
 
-The node returns the full API response, including per-account statuses, so you can see the status of each account's publication.
+The node returns the full API response, including per-platform statuses in the `platforms` array, so you can see the status of each platform's publication.
+
+### Post Status Values
+
+- **`pending`**: Post is queued and waiting to be published
+- **`processed`**: Post has been processed (may be published or failed)
+- **`draft`**: Post is saved as a draft
+
+### Platform Status Values (in `platforms` array)
+
+- **`pending`**: Platform-specific publication is pending
+- **`published`**: Successfully published to the platform
+- **`failed`**: Publication failed (check error details if available)
+
+### Response Structure
+
+Posts now include:
+- `platforms`: Array of platform-specific information with `network`, `status`, `params`, `attempted_at`, and `insights` (when available)
+- `draft`: Boolean indicating if post is a draft
+- `status`: Overall post status
+- `insights`: Platform insights (impressions, engagement) when available from the platform
 
 ## Error Handling
 

@@ -60,35 +60,48 @@ n8n's dateTime picker will handle the format conversion automatically.
 
 ## Understanding Post Status
 
-When you create a post, PostProxy returns a response with status information for each account:
+When you create a post, PostProxy returns a response with status information for each platform:
 
 ```json
 {
-  "id": "post_123",
-  "status": "scheduled",
-  "accounts": [
+  "id": "NWLtbA",
+  "content": "Scheduled post content",
+  "status": "pending",
+  "draft": false,
+  "scheduled_at": "2024-12-25T10:00:00Z",
+  "created_at": "2024-12-20T10:00:00Z",
+  "platforms": [
     {
-      "account_id": "acc_123",
-      "status": "scheduled",
-      "scheduled_at": "2024-12-25T10:00:00Z"
+      "network": "twitter",
+      "status": "pending",
+      "params": {},
+      "attempted_at": null
     }
   ]
 }
 ```
 
-### Status Values
+**Note**: IDs are now alphanumeric strings (e.g., `"NWLtbA"`), not numeric.
 
-- **`scheduled`**: Post is scheduled for future publishing
-- **`processing`**: Post is being processed (normal for immediate posts)
-- **`published`**: Post has been successfully published
-- **`failed`**: Post failed to publish (check error details)
+### Post Status Values
+
+- **`pending`**: Post is queued and waiting to be published
+- **`processed`**: Post has been processed (may be published or failed)
+- **`draft`**: Post is saved as a draft
+
+### Platform Status Values (in `platforms` array)
+
+- **`pending`**: Platform-specific publication is pending
+- **`published`**: Successfully published to the platform
+- **`failed`**: Publication failed (check error details if available)
 
 ### Processing State
 
-For immediate posts, you may see `status: "processing"` initially. This is normal:
+For immediate posts, you may see `status: "pending"` initially. This is normal:
 - PostProxy is handling rate limits automatically
 - The post is queued and will be published when quota is available
 - Processing typically completes within seconds to minutes
+- Once processed, the status will change to `processed` and platform statuses will update accordingly
 
 ## Best Practices
 
@@ -122,8 +135,9 @@ For immediate posts, you may see `status: "processing"` initially. This is norma
 ```json
 {
   "content": "Hello world!",
-  "accounts": ["acc_123"],
-  "publish_at": null
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR"],
+  "publishType": "publish_now"
 }
 ```
 
@@ -131,16 +145,20 @@ For immediate posts, you may see `status: "processing"` initially. This is norma
 ```json
 {
   "content": "Weekly update!",
-  "accounts": ["acc_123"],
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR"],
+  "publishType": "schedule",
   "publish_at": "2024-12-30T09:00:00Z"
 }
 ```
 
-### Scheduled Post with Multiple Accounts
+### Scheduled Post with Multiple Profiles
 ```json
 {
   "content": "Product launch announcement!",
-  "accounts": ["acc_123", "acc_456", "acc_789"],
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR", "y7dU5N", "RxKU3N"],
+  "publishType": "schedule",
   "publish_at": "2024-12-25T10:00:00Z"
 }
 ```
@@ -149,8 +167,9 @@ For immediate posts, you may see `status: "processing"` initially. This is norma
 
 **Post not publishing immediately?**
 - Check if rate limits are active (PostProxy handles this automatically)
-- Verify account is connected and active
-- Check the status in the response - "processing" is normal
+- Verify profile is connected and active (check `expires_at` field)
+- Check the status in the response - "pending" is normal initially
+- Check platform-specific statuses in the `platforms` array
 
 **Scheduled post not publishing?**
 - Verify the `publish_at` time is in the future

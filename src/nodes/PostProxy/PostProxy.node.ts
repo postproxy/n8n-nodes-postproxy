@@ -21,12 +21,14 @@ interface PostProxyError {
 
 // Helper function to simplify post response
 function simplifyPost(post: any): any {
-  // Handle both response formats: 
-  // - API GET /posts/{id} returns: {id, content, created_at, networks: [{network, status, attempted_at}]}
-  // - API POST /posts returns: {id, post: {body, scheduled_at}, status, accounts: [...]}
+  // Handle multiple response formats for backward compatibility:
+  // - New API format: {id, content, status, draft, scheduled_at, created_at, platforms: [{network, status, params, attempted_at, insights}]}
+  // - Old API format: {id, content, created_at, networks: [{network, status, attempted_at}]}
+  // - Create response: {id, post: {body, scheduled_at}, status, accounts: [...]}
   
   const content = post.content || post.post?.body || post.body || "";
-  const networks = post.networks || post.accounts || [];
+  // Prioritize new 'platforms' format, fallback to old formats for compatibility
+  const platforms = post.platforms || post.networks || post.accounts || [];
   
   const result: any = {
     id: post.id,
@@ -37,6 +39,10 @@ function simplifyPost(post: any): any {
   // Add optional fields only if they exist
   if (post.status !== undefined) {
     result.status = post.status;
+  }
+  
+  if (post.draft !== undefined) {
+    result.draft = post.draft;
   }
   
   if (post.scheduled_at !== undefined || post.post?.scheduled_at !== undefined) {
@@ -51,8 +57,8 @@ function simplifyPost(post: any): any {
     result.profile_group_id = post.profile_group_id;
   }
   
-  // Map both 'networks' and 'accounts' formats
-  result.network_statuses = networks.map((item: any) => {
+  // Map platforms/networks/accounts to unified format
+  result.platforms = platforms.map((item: any) => {
     const mapped: any = {
       network: item.network || item.type,
       status: item.status,
@@ -63,6 +69,15 @@ function simplifyPost(post: any): any {
       mapped.attempted_at = item.attempted_at;
     }
     
+    if (item.params !== undefined && item.params !== null) {
+      mapped.params = item.params;
+    }
+    
+    if (item.insights !== undefined && item.insights !== null) {
+      mapped.insights = item.insights;
+    }
+    
+    // Legacy fields for backward compatibility
     if (item.profile_id !== undefined) {
       mapped.profile_id = item.profile_id;
     }
@@ -78,12 +93,15 @@ function simplifyPost(post: any): any {
     return mapped;
   });
   
+  // Keep legacy field name for backward compatibility
+  result.network_statuses = result.platforms;
+  
   return result;
 }
 
 // Helper function to simplify profile response
 function simplifyProfile(profile: any): any {
-  return {
+  const result: any = {
     id: profile.id,
     name: profile.name || profile.username,
     network: profile.network || profile.type,
@@ -91,6 +109,17 @@ function simplifyProfile(profile: any): any {
     status: profile.status,
     created_at: profile.created_at,
   };
+  
+  // Add optional fields only if they exist
+  if (profile.expires_at !== undefined && profile.expires_at !== null) {
+    result.expires_at = profile.expires_at;
+  }
+  
+  if (profile.post_count !== undefined) {
+    result.post_count = profile.post_count;
+  }
+  
+  return result;
 }
 
 // Helper function to extract value from resource locator
@@ -386,16 +415,7 @@ export class PostProxy implements INodeType {
             displayName: "By ID",
             name: "id",
             type: "string",
-            placeholder: "e.g. 123",
-            validation: [
-              {
-                type: "regex",
-                properties: {
-                  regex: "^[0-9]+$",
-                  errorMessage: "Profile Group ID must be a number",
-                },
-              },
-            ],
+            placeholder: "e.g. zbNFmz",
           },
         ],
       },
@@ -453,6 +473,20 @@ export class PostProxy implements INodeType {
           "Array of media URLs (images or videos) to attach to the post",
         default: [],
       },
+      {
+        displayName: "Platform Parameters",
+        name: "platformParams",
+        type: "json",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        required: false,
+        default: "{}",
+        description: "Platform-specific parameters as JSON object (e.g., {\"alt_text\": \"Image description\"}). These will be passed to each platform in the 'params' field.",
+      },
       // Parameters for Post - Get operation
       {
         displayName: "Post",
@@ -481,16 +515,7 @@ export class PostProxy implements INodeType {
             displayName: "By ID",
             name: "id",
             type: "string",
-            placeholder: "e.g. 12345",
-            validation: [
-              {
-                type: "regex",
-                properties: {
-                  regex: "^[0-9]+$",
-                  errorMessage: "Post ID must be a number",
-                },
-              },
-            ],
+            placeholder: "e.g. NWLtbA",
           },
         ],
       },
@@ -522,16 +547,7 @@ export class PostProxy implements INodeType {
             displayName: "By ID",
             name: "id",
             type: "string",
-            placeholder: "e.g. 12345",
-            validation: [
-              {
-                type: "regex",
-                properties: {
-                  regex: "^[0-9]+$",
-                  errorMessage: "Post ID must be a number",
-                },
-              },
-            ],
+            placeholder: "e.g. NWLtbA",
           },
         ],
       },
@@ -563,16 +579,7 @@ export class PostProxy implements INodeType {
             displayName: "By ID",
             name: "id",
             type: "string",
-            placeholder: "e.g. 12345",
-            validation: [
-              {
-                type: "regex",
-                properties: {
-                  regex: "^[0-9]+$",
-                  errorMessage: "Post ID must be a number",
-                },
-              },
-            ],
+            placeholder: "e.g. NWLtbA",
           },
         ],
       },
@@ -654,6 +661,40 @@ export class PostProxy implements INodeType {
         default: 50,
         description: "Max number of results to return",
       },
+      {
+        displayName: "Page",
+        name: "page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 0,
+        },
+        default: 0,
+        description: "Page number (0-indexed) for pagination",
+      },
+      {
+        displayName: "Per Page",
+        name: "per_page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getMany"],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 10,
+        description: "Number of items per page (API pagination parameter)",
+      },
       // Parameters for Profile - Get operation
       {
         displayName: "Profile",
@@ -682,16 +723,7 @@ export class PostProxy implements INodeType {
             displayName: "By ID",
             name: "id",
             type: "string",
-            placeholder: "e.g. 12345",
-            validation: [
-              {
-                type: "regex",
-                properties: {
-                  regex: "^[0-9]+$",
-                  errorMessage: "Profile ID must be a number",
-                },
-              },
-            ],
+            placeholder: "e.g. yqWUvR",
           },
         ],
       },
@@ -741,6 +773,40 @@ export class PostProxy implements INodeType {
         default: 50,
         description: "Max number of results to return",
       },
+      {
+        displayName: "Page",
+        name: "page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 0,
+        },
+        default: 0,
+        description: "Page number (0-indexed) for pagination",
+      },
+      {
+        displayName: "Per Page",
+        name: "per_page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profile"],
+            operation: ["getMany"],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 10,
+        description: "Number of items per page (API pagination parameter)",
+      },
       // Parameters for Profile Group - Get Many operation
       {
         displayName: "Return All",
@@ -773,6 +839,40 @@ export class PostProxy implements INodeType {
         default: 50,
         description: "Max number of results to return",
       },
+      {
+        displayName: "Page",
+        name: "page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["getMany"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 0,
+        },
+        default: 0,
+        description: "Page number (0-indexed) for pagination",
+      },
+      {
+        displayName: "Per Page",
+        name: "per_page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["getMany"],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 10,
+        description: "Number of items per page (API pagination parameter)",
+      },
     ],
   };
 
@@ -798,12 +898,14 @@ export class PostProxy implements INodeType {
           const posts = response.data || response.items || (Array.isArray(response) ? response : []);
           
           let results: INodeListSearchItems[] = posts.map((post: any) => {
-            const content = post.post?.body || post.body || "";
+            // Handle new API format: content field, or legacy post.body format
+            const content = post.content || post.post?.body || post.body || "";
             const truncated = content.length > 50 ? content.substring(0, 50) + "..." : content;
             const status = post.status ? ` [${post.status}]` : "";
+            const draft = post.draft ? " [draft]" : "";
             
             return {
-              name: `${truncated}${status}`,
+              name: `${truncated}${status}${draft}`,
               value: post.id != null ? String(post.id) : "",
               url: post.url || undefined,
             };
@@ -1035,6 +1137,7 @@ export class PostProxy implements INodeType {
           | string[]
           | undefined;
         const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
+        const platformParamsRaw = this.getNodeParameter("platformParams", 0, "{}") as string;
 
         // Validation
         if (!content || content.trim().length === 0) {
@@ -1074,7 +1177,7 @@ export class PostProxy implements INodeType {
           post: {
             body: content.trim(),
           },
-          profile_group_id: parseInt(profileGroupId),
+          profile_group_id: profileGroupId,
           profiles: profiles,
         };
 
@@ -1090,6 +1193,24 @@ export class PostProxy implements INodeType {
             .map((url) => url.trim());
           if (filteredUrls.length > 0) {
             body.media = filteredUrls;
+          }
+        }
+
+        // Parse and add platform parameters if provided
+        if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
+          try {
+            const platformParams = typeof platformParamsRaw === "string" 
+              ? JSON.parse(platformParamsRaw) 
+              : platformParamsRaw;
+            if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
+              body.params = platformParams;
+            }
+          } catch (error) {
+            throw new NodeOperationError(
+              this.getNode(),
+              "Invalid Platform Parameters JSON",
+              { description: "Platform Parameters must be valid JSON. Error: " + (error as Error).message }
+            );
           }
         }
 
@@ -1129,22 +1250,49 @@ export class PostProxy implements INodeType {
         const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
         const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
         
-        responseData = await makeRequest.call(this, "GET", "/posts");
-
-        let items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
+        let allItems: any[] = [];
+        let currentPage = 0;
+        let total = 0;
+        let perPage = 10;
+        
+        if (!returnAll) {
+          currentPage = this.getNodeParameter("page", 0, 0) as number;
+          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+        }
+        
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+          
+          const response = await makeRequest.call(this, "GET", `/posts?${queryParams.toString()}`);
+          
+          const items = response.data || response.items || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+          
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
         
         if (!returnAll) {
           const limit = this.getNodeParameter("limit", 0, 50) as number;
-          items = items.slice(0, limit);
+          allItems = allItems.slice(0, limit);
         }
         
         if (simplify) {
-          items = items.map((post: any) => simplifyPost(post));
+          allItems = allItems.map((post: any) => simplifyPost(post));
         }
         
         responseData = {
-          ...responseData,
-          data: items,
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
         };
       } else if (operation === "update") {
         const postIdRaw = this.getNodeParameter("postId", 0);
@@ -1209,22 +1357,49 @@ export class PostProxy implements INodeType {
         const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
         const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
         
-        responseData = await makeRequest.call(this, "GET", "/profiles");
-
-        let items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
+        let allItems: any[] = [];
+        let currentPage = 0;
+        let total = 0;
+        let perPage = 10;
+        
+        if (!returnAll) {
+          currentPage = this.getNodeParameter("page", 0, 0) as number;
+          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+        }
+        
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+          
+          const response = await makeRequest.call(this, "GET", `/profiles?${queryParams.toString()}`);
+          
+          const items = response.data || response.items || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+          
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
         
         if (!returnAll) {
           const limit = this.getNodeParameter("limit", 0, 50) as number;
-          items = items.slice(0, limit);
+          allItems = allItems.slice(0, limit);
         }
         
         if (simplify) {
-          items = items.map((profile: any) => simplifyProfile(profile));
+          allItems = allItems.map((profile: any) => simplifyProfile(profile));
         }
         
         responseData = {
-          ...responseData,
-          data: items,
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
         };
       }
     }
@@ -1233,16 +1408,47 @@ export class PostProxy implements INodeType {
     else if (resource === "profileGroup") {
       if (operation === "getMany") {
         const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
-        responseData = await makeRequest.call(this, "GET", "/profile_groups/");
-
+        
+        let allItems: any[] = [];
+        let currentPage = 0;
+        let total = 0;
+        let perPage = 10;
+        
+        if (!returnAll) {
+          currentPage = this.getNodeParameter("page", 0, 0) as number;
+          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+        }
+        
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+          
+          const response = await makeRequest.call(this, "GET", `/profile_groups/?${queryParams.toString()}`);
+          
+          const items = response.data || response.items || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+          
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
+        
         if (!returnAll) {
           const limit = this.getNodeParameter("limit", 0, 50) as number;
-          const items = responseData.data || responseData.items || (Array.isArray(responseData) ? responseData : []);
-          responseData = {
-            ...responseData,
-            data: items.slice(0, limit),
-          };
+          allItems = allItems.slice(0, limit);
         }
+        
+        responseData = {
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
+        };
       }
     }
 

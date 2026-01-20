@@ -21,17 +21,19 @@ The output will show all connected accounts with their details:
 
 Each account has a unique `id` field. This is what you'll use in the "Account IDs" field when creating posts.
 
-Example output from List Accounts:
+Example output from List Profiles:
 ```json
 {
-  "id": "acc_1234567890",
-  "name": "My Company Twitter",
-  "type": "twitter",
-  "username": "@mycompany"
+  "id": "yqWUvR",
+  "name": "d__s",
+  "network": "twitter",
+  "profile_group_id": "zbNFmz",
+  "expires_at": null,
+  "post_count": 9
 }
 ```
 
-In this case, `acc_1234567890` is the account ID you would use.
+**Note**: IDs are now alphanumeric strings (e.g., `"yqWUvR"`, `"zbNFmz"`), not numeric. In this case, `yqWUvR` is the profile ID you would use.
 
 ## Step 3: Selecting Accounts in Create Post
 
@@ -42,7 +44,7 @@ When creating a post:
 3. Set **Operation** to "Create"
 4. In the **Account IDs** field, you'll see a dropdown with all your accounts
 
-The dropdown shows accounts in the format: `Name (Type)` (e.g., "My Company Twitter (twitter)")
+The dropdown shows profiles in the format: `Name (Network)` (e.g., "d__s (twitter)")
 
 You can select multiple accounts to publish the same post to different platforms simultaneously.
 
