@@ -1058,15 +1058,15 @@ export class PostProxy implements INodeType {
           
           try {
             profileGroupId = this.getCurrentNodeParameter("profileGroup") as string | undefined;
-          } catch (e: any) {
+          } catch {
             // getCurrentNodeParameter may fail, try alternative methods
             try {
               profileGroupId = this.getNodeParameter("profileGroup", 0) as string | undefined;
-            } catch (e2: any) {
+            } catch {
               try {
                 const node = this.getNode();
                 profileGroupId = node?.parameters?.profileGroup as string | undefined;
-              } catch (e3: any) {
+              } catch {
                 // All methods failed, profileGroupId remains undefined
               }
             }
