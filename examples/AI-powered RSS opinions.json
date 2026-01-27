@@ -1,0 +1,493 @@
+{
+  "name": "AI-powered RSS opinions",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "041818da-fa55-42fe-b954-4cfa63de2ee6",
+              "name": "Karpathy",
+              "value": "https://karpathy.bearblog.dev/feed/",
+              "type": "string"
+            },
+            {
+              "id": "5a1e4060-3842-43ee-8a19-7bc2c0715720",
+              "name": "Ken Thomson",
+              "value": "https://stratechery.com/",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        1552
+      ],
+      "id": "3b98e4e1-36b6-4b14-b6f2-947230450f9f",
+      "name": "RSS Feed List"
+    },
+    {
+      "parameters": {
+        "jsCode": "const merged = Object.assign({}, ...items.map(i => i.json));\n\nreturn Object.entries(merged).map(([name, url]) => ({\n  json: { name, url }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        1552
+      ],
+      "id": "a3eeaf8e-285a-4a47-8aef-cff6ee9ac337",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -32,
+        1552
+      ],
+      "id": "61f0abae-cd10-462f-85fe-188e8b9a45fb",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "GPT-5-NANO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a thoughtful product builder sharing personal opinions about technology.\nYou write like an experienced practitioner, not a marketer or influencer.\nYour tone is calm, curious, and opinionated, but not provocative.\nNo emojis. No hashtags. No hype.\n",
+              "role": "system"
+            },
+            {
+              "content": "You will receive a list of articles from RSS feeds.\n\nYour task:\n\n1. Read all articles.\n2. Pick ONE article that genuinely caught your attention.\n3. Identify a concrete thought, sentence, or idea that made you pause, nod, or disagree.\n4. Write a short social post reacting to it as a human would.\n\nWriting style:\n- First person.\n- Slightly informal.\n- Can include mild sarcasm, irony, or curiosity.\n- It should sound like something you would actually post, not a summary.\n- It's okay to be a bit opinionated or unsure.\n- Short sentences are fine.\n- Imperfect phrasing is fine.\n\nWhat to write about:\n- What exactly stood out to you.\n- Why it resonated (or annoyed you).\n- What it made you think about.\n- Then naturally point to the original article.\n\nHard rules:\n- 3–5 sentences.\n- No emojis.\n- No hashtags.\n- No marketing tone.\n- No generic phrases like \"this is important because\".\n- No calls to action like \"Follow\", \"Like\", or \"Subscribe\".\n\nOutput EXACTLY this JSON:\n\n{\n  \"post_text\": \"final text ready for publishing\",\n  \"selected_article\": {\n    \"title\": \"...\",\n    \"link\": \"...\",\n    \"source\": \"...\"\n  }\n}\n\nDo not include commentary outside the JSON.\n\nIf a link is missing for the selected article, pick a different article that has a valid link.\n"
+            },
+            {
+              "content": "=RSS CONTENT:\n\n{{ JSON.stringify($json.data, null, 2) }}"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "options": {}
+      },
+      "id": "db2cb45c-a4de-4a9e-aefa-3a837c0abdb2",
+      "name": "OpenAI1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        1232,
+        1488
+      ],
+      "typeVersion": 1.8,
+      "credentials": {
+        "openAiApi": {
+          "id": "57G8ZNKRiWEOo2Yt",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "ignoreSSL": false
+        }
+      },
+      "id": "80f063ce-b662-4d9e-a2ab-66ce2757afdc",
+      "name": "Fetch RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "position": [
+        160,
+        1568
+      ],
+      "typeVersion": 1.1,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        1552
+      ],
+      "id": "8b7987d8-7d08-4315-a42e-25b754103f84",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "30d4f694-9378-42b4-b1d5-cbc38fb3e7fe",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              },
+              "leftValue": "={{ $json.pubDate }}",
+              "rightValue": "={{ $today.minus({ days: 100 }) }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a421a7b-8ead-418e-8121-a8afa04750c1",
+      "name": "Only [day-1]",
+      "type": "n8n-nodes-base.filter",
+      "position": [
+        592,
+        1488
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "maxItems": 10
+      },
+      "id": "2412664e-60c3-40a2-8ad1-8310b40d9ee9",
+      "name": "10 last items",
+      "type": "n8n-nodes-base.limit",
+      "position": [
+        784,
+        1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### RSS sources configuration\n\nThis is the list of RSS feeds the workflow will read from.\nAdd, remove, or replace feeds here to control what content is monitored.\n\nEach field represents one feed. \n\nCode node transforms the RSS feed list into individual items so they can be processed one by one.",
+        "height": 576,
+        "width": 464,
+        "color": 7
+      },
+      "id": "4aab5889-d23d-488c-9556-828a39a3b619",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### Fetch & normalize articles\n\nEach RSS feed is processed one by one.\nArticles are fetched and normalized into a consistent format so downstream steps don’t depend on feed-specific quirks.\n\nAll articles from all feeds are collected together.",
+        "height": 576,
+        "width": 640,
+        "color": 7
+      },
+      "id": "18ce8b1a-fafa-4a47-b3d2-aa43d28392d7",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### Select relevant content\n\nOnly recent articles are kept, and the total number is limited.\nThis keeps the workflow focused, avoids reposting old content, and controls token usage for the AI step.",
+        "height": 576,
+        "width": 560,
+        "color": 7
+      },
+      "id": "62146a59-9269-4f7b-90b0-7998ba5994ed",
+      "name": "Sticky Note7",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        560,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### Write a personal reaction\n\nThe AI reviews all selected articles, picks one that stands out,\nand writes a short, opinionated reaction.\n\nThe goal is not a summary, but a human-like perspective on a specific idea.",
+        "height": 576,
+        "width": 384,
+        "color": 7
+      },
+      "id": "8daabcfe-d783-4d36-90a1-b5dbccddf589",
+      "name": "Sticky Note8",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1152,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "# AI-powered RSS opinions\n\nThis workflow reads multiple RSS feeds, selects a recent article,\nand generates a short personal reaction ready for sharing.\n\nDesigned to sound human, opinionated, and imperfect -not like a digest.",
+        "height": 224,
+        "width": 592,
+        "color": 7
+      },
+      "id": "844c05af-a928-4a97-84e9-1fa1a6f47477",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        992
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "### Publish via Postproxy\n\nPostproxy is a unified publishing API for social platforms.\n\nCreate an account at https://postproxy.dev, generate an API key, and add it to the Postproxy credentials in n8n to publish the post.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nYou can replace this node with any other publishing destination if you prefer.",
+        "height": 576,
+        "width": 384,
+        "color": 7
+      },
+      "id": "95ce3e8d-5190-4ee8-b469-d1dec39260eb",
+      "name": "Sticky Note9",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1568,
+        1280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e2ffe594-180d-4e1d-b869-8056ac67015d",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "id": "87c5a171-9ab9-4043-a72a-32aec218fe63",
+              "name": "pubDate",
+              "type": "string",
+              "value": "={{ $json.pubDate }}"
+            },
+            {
+              "id": "978b05c9-6e6b-4a18-bc06-4de785b19413",
+              "name": "content",
+              "type": "string",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "id": "2cb78d34-c21d-4e8f-b13a-467e36027e16",
+              "name": "author",
+              "value": "={{ $json.author || $json.creator }}",
+              "type": "string"
+            },
+            {
+              "id": "57b7b708-36ec-4a2b-8e7b-bd852a523d99",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c2d99c40-1ab6-4a6d-aed0-8322e70f6414",
+      "name": "Normalize article fields",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        336,
+        1568
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "include": "specifiedFields",
+        "fieldsToInclude": "title, pubDate, content, author",
+        "options": {}
+      },
+      "id": "ab621936-510c-4cae-88da-8e50a8c7f0ab",
+      "name": "Combine articles",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        960,
+        1488
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "profileGroup": {
+          "__rl": true,
+          "value": "zbNFmz",
+          "mode": "list",
+          "cachedResultName": "Default"
+        },
+        "profiles": "={{ [\"linkedin\"] }}",
+        "content": "={{ $json.choices[0].message.content.post_text }}"
+      },
+      "type": "CUSTOM.postProxy",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        1488
+      ],
+      "id": "0f9b9bc4-320c-43c3-8392-4f3d0ba42afe",
+      "name": "Publish post",
+      "credentials": {
+        "postProxyApi": {
+          "id": "SB4DTSNgscxNGAba",
+          "name": "PostProxy account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RSS Feed List": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Only [day-1]",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI1": {
+      "main": [
+        [
+          {
+            "node": "Publish post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch RSS": {
+      "main": [
+        [
+          {
+            "node": "Normalize article fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "RSS Feed List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only [day-1]": {
+      "main": [
+        [
+          {
+            "node": "10 last items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 last items": {
+      "main": [
+        [
+          {
+            "node": "Combine articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize article fields": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine articles": {
+      "main": [
+        [
+          {
+            "node": "OpenAI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "5b4ea56e-b386-4a43-8cc5-9d7ec9c8515c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d17553db9c72a9e20d8e3ab5fb00fbc563f69ae22a55473be28968c8064e3668"
+  },
+  "id": "HnUGZeCQWwwxsW88II618",
+  "tags": []
+}

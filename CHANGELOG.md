@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-27
+
 ### Changed
 - Configured npm package to exclude source files from publication (only `dist/`, `README.md`, and `LICENSE` are included)
 - Added versioning scripts for easier package version management
@@ -22,5 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/64bitlabs/n8n-nodes-postproxy/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/64bitlabs/n8n-nodes-postproxy/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/64bitlabs/n8n-nodes-postproxy/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/64bitlabs/n8n-nodes-postproxy/releases/tag/v0.1.0
