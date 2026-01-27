@@ -22,8 +22,8 @@ interface PostProxyError {
 // Helper function to simplify post response
 function simplifyPost(post: any): any {
   // Handle multiple response formats for backward compatibility:
-  // - New API format: {id, content, status, draft, scheduled_at, created_at, platforms: [{network, status, params, attempted_at, insights}]}
-  // - Old API format: {id, content, created_at, networks: [{network, status, attempted_at}]}
+  // - New API format: {id, content, status, draft, scheduled_at, created_at, platforms: [{platform, status, params, attempted_at, insights}]}
+  // - Old API format: {id, content, created_at, networks: [{platform, status, attempted_at}]}
   // - Create response: {id, post: {body, scheduled_at}, status, accounts: [...]}
   
   const content = post.content || post.post?.body || post.body || "";
@@ -60,7 +60,7 @@ function simplifyPost(post: any): any {
   // Map platforms/networks/accounts to unified format
   result.platforms = platforms.map((item: any) => {
     const mapped: any = {
-      network: item.network || item.type,
+      platform: item.platform,
       status: item.status,
     };
     
@@ -104,7 +104,7 @@ function simplifyProfile(profile: any): any {
   const result: any = {
     id: profile.id,
     name: profile.name || profile.username,
-    network: profile.network || profile.type,
+    platform: profile.platform,
     profile_group_id: profile.profile_group_id,
     status: profile.status,
     created_at: profile.created_at,
@@ -294,6 +294,12 @@ export class PostProxy implements INodeType {
             description: "Update a post",
             action: "Update a post",
           },
+          {
+            name: "Publish",
+            value: "publish",
+            description: "Publish a draft post",
+            action: "Publish a draft post",
+          },
         ],
         default: "create",
         description: "The operation to perform",
@@ -368,9 +374,14 @@ export class PostProxy implements INodeType {
             value: "schedule",
             description: "Schedule the post for later",
           },
+          {
+            name: "Draft",
+            value: "draft",
+            description: "Create a draft post that won't be published automatically",
+          },
         ],
         default: "publish_now",
-        description: "When to publish the post",
+        description: "When to publish the post (or create as draft)",
       },
       {
         displayName: "Publish At",
@@ -612,6 +623,38 @@ export class PostProxy implements INodeType {
             type: "dateTime",
             default: "",
             description: "Update the scheduled publish time (ISO 8601 format)",
+          },
+        ],
+      },
+      // Parameters for Post - Publish operation
+      {
+        displayName: "Post",
+        name: "postId",
+        type: "resourceLocator",
+        default: { mode: "list", value: "" },
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["publish"],
+          },
+        },
+        required: true,
+        description: "The draft post to publish",
+        modes: [
+          {
+            displayName: "From List",
+            name: "list",
+            type: "list",
+            typeOptions: {
+              searchListMethod: "searchPosts",
+              searchable: true,
+            },
+          },
+          {
+            displayName: "By ID",
+            name: "id",
+            type: "string",
+            placeholder: "e.g. NWLtbA",
           },
         ],
       },
@@ -884,9 +927,32 @@ export class PostProxy implements INodeType {
       ): Promise<INodeListSearchResult> {
         const credentials = await this.getCredentials("postProxyApi");
         try {
+          // Check if current operation is "publish" to filter only draft posts
+          let operation: string | undefined;
+          try {
+            operation = this.getCurrentNodeParameter("operation") as string | undefined;
+          } catch {
+            try {
+              const node = this.getNode();
+              operation = node?.parameters?.operation as string | undefined;
+            } catch {
+              // Operation cannot be determined, continue without filtering
+            }
+          }
+
+          // Build query parameters
+          const queryParams = new URLSearchParams();
+          if (operation === "publish") {
+            queryParams.append("status", "draft");
+          }
+
+          const url = queryParams.toString() 
+            ? `${BASE_URL}/posts?${queryParams.toString()}`
+            : `${BASE_URL}/posts`;
+
           const response = await this.helpers.httpRequest({
             method: "GET",
-            url: `${BASE_URL}/posts`,
+            url: url,
             headers: {
               Authorization: `Bearer ${credentials.apiKey}`,
               "Content-Type": "application/json",
@@ -895,7 +961,15 @@ export class PostProxy implements INodeType {
             timeout: 30000,
           });
 
-          const posts = response.data || response.items || (Array.isArray(response) ? response : []);
+          let posts = response.data || response.items || (Array.isArray(response) ? response : []);
+          
+          // Filter only draft posts if operation is "publish"
+          if (operation === "publish") {
+            posts = posts.filter((post: any) => {
+              // Check both status field and draft field for compatibility
+              return post.status === "draft" || post.draft === true;
+            });
+          }
           
           let results: INodeListSearchItems[] = posts.map((post: any) => {
             // Handle new API format: content field, or legacy post.body format
@@ -949,7 +1023,7 @@ export class PostProxy implements INodeType {
           
           let results: INodeListSearchItems[] = profiles.map((profile: any) => {
             const profileName = profile.name || profile.username || `Profile ${profile.id}`;
-            const platformType = profile.network || profile.type || "unknown";
+            const platformType = profile.platform || "unknown";
             
             return {
               name: `${profileName} (${platformType})`,
@@ -1091,16 +1165,23 @@ export class PostProxy implements INodeType {
 
           // Filter by profileGroupId if provided
           if (profileGroupId && profileGroupId !== "") {
-            const groupIdNum = parseInt(profileGroupId, 10);
-            if (!isNaN(groupIdNum)) {
-              profiles = profiles.filter((profile: any) => profile.profile_group_id === groupIdNum);
+            // Extract value from resource locator if needed
+            const groupIdValue = typeof profileGroupId === "object" && profileGroupId !== null
+              ? extractResourceLocatorValue(profileGroupId)
+              : String(profileGroupId);
+            
+            if (groupIdValue) {
+              profiles = profiles.filter((profile: any) => {
+                const profileGroupId = String(profile.profile_group_id || "");
+                return profileGroupId === groupIdValue;
+              });
             }
           }
 
           // Map profiles to dropdown options
           return profiles.map((profile: any) => {
             const profileName = profile.name || profile.username || `Profile ${profile.id}`;
-            const platformType = profile.network || profile.type || "unknown";
+            const platformType = profile.platform || "unknown";
             const displayName = `${profileName} (${platformType})`;
             const profileId = profile.id != null ? String(profile.id) : "";
             
@@ -1177,12 +1258,20 @@ export class PostProxy implements INodeType {
           post: {
             body: content.trim(),
           },
-          profile_group_id: profileGroupId,
           profiles: profiles,
         };
 
         if (publishType === "schedule" && publishAt) {
           body.post.scheduled_at = publishAt.trim();
+        }
+
+        // Add draft parameter if creating a draft post
+        if (publishType === "draft") {
+          body.post.draft = true;
+          // Draft posts can optionally have scheduled_at
+          if (publishAt && publishAt.trim().length > 0) {
+            body.post.scheduled_at = publishAt.trim();
+          }
         }
 
         if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
@@ -1330,6 +1419,24 @@ export class PostProxy implements INodeType {
         }
         
         responseData = await makeRequest.call(this, "PATCH", `/posts/${postId}`, body);
+      } else if (operation === "publish") {
+        const postIdRaw = this.getNodeParameter("postId", 0);
+        const postId = extractResourceLocatorValue(postIdRaw);
+        
+        if (!postId) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "Post ID is required",
+            { description: "Please provide a valid Post ID." }
+          );
+        }
+        
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/publish`);
+        
+        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        if (simplify && responseData) {
+          responseData = simplifyPost(responseData);
+        }
       }
     }
 

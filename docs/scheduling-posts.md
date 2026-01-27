@@ -1,6 +1,6 @@
 # Scheduling Posts
 
-PostProxy supports both immediate and scheduled publishing. This guide explains the difference and how to use each option.
+PostProxy supports immediate publishing, scheduled publishing, and draft posts. This guide explains the difference and how to use each option.
 
 ## Immediate Publishing
 
@@ -58,6 +58,47 @@ n8n's dateTime picker will handle the format conversion automatically.
 - Batch scheduling multiple posts
 - Cross-timezone coordination
 
+## Draft Posts
+
+Draft posts allow you to create posts that won't be published automatically. This is useful for content that needs review before publishing.
+
+### How to Create a Draft Post
+
+1. Create a PostProxy node
+2. Set **Resource** to "Post"
+3. Set **Operation** to "Create"
+4. Set **Publish Type** to "Draft"
+5. Fill in **Content** and **Account IDs**
+6. Execute the node
+
+The post will be saved as a draft and won't be published until you explicitly publish it.
+
+### Publishing a Draft Post
+
+To publish a draft post:
+
+1. Create a PostProxy node
+2. Set **Resource** to "Post"
+3. Set **Operation** to "Publish"
+4. Select the draft post from the list or enter its **Post ID**
+5. Execute the node
+
+The draft post will be published immediately (or at its scheduled time if it was created with a `scheduled_at` date).
+
+### When to Use Draft Posts
+
+- Content that needs review before publishing
+- Collaborative workflows where multiple people need to approve content
+- Creating posts in advance for later review
+- Testing post content without publishing
+
+### Difference Between Drafts and Scheduled Posts
+
+- **Scheduled Posts**: Created with a specific publish time and will be published automatically at that time
+- **Draft Posts**: Created without automatic publishing - must be manually published using the Publish operation
+
+Note: Draft posts can optionally have a `scheduled_at` date. If a draft post has a scheduled date and is published, it will be scheduled for that time. If it doesn't have a scheduled date, it will be published immediately.
+
 ## Understanding Post Status
 
 When you create a post, PostProxy returns a response with status information for each platform:
@@ -87,7 +128,8 @@ When you create a post, PostProxy returns a response with status information for
 
 - **`pending`**: Post is queued and waiting to be published
 - **`processed`**: Post has been processed (may be published or failed)
-- **`draft`**: Post is saved as a draft
+- **`draft`**: Post is saved as a draft (not yet published)
+- **`scheduled`**: Post is scheduled for future publishing
 
 ### Platform Status Values (in `platforms` array)
 
@@ -163,6 +205,25 @@ For immediate posts, you may see `status: "pending"` initially. This is normal:
 }
 ```
 
+### Draft Post
+```json
+{
+  "content": "Content to review before posting",
+  "profileGroup": "zbNFmz",
+  "profiles": ["yqWUvR"],
+  "publishType": "draft"
+}
+```
+
+### Publishing a Draft Post
+```json
+{
+  "resource": "post",
+  "operation": "publish",
+  "postId": "NWLtbA"
+}
+```
+
 ## Troubleshooting
 
 **Post not publishing immediately?**
@@ -180,4 +241,9 @@ For immediate posts, you may see `status: "pending"` initially. This is normal:
 - Check error details in the response
 - Verify account credentials are valid
 - Ensure content meets platform requirements (character limits, media formats, etc.)
+
+**Can't publish a draft post?**
+- Verify the post ID is correct
+- Ensure the post is actually a draft (check the `draft` field in the post details)
+- Only draft posts can be published using the Publish operation
 
