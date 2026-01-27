@@ -21,12 +21,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/64bitlabs/n8n-nodes-postproxy.git"
+    "url": "https://github.com/postproxy/n8n-nodes-postproxy.git"
   },
   "bugs": {
-    "url": "https://github.com/64bitlabs/n8n-nodes-postproxy/issues"
+    "url": "https://github.com/postproxy/n8n-nodes-postproxy/issues"
   },
-  "homepage": "https://github.com/64bitlabs/n8n-nodes-postproxy#readme",
+  "homepage": "https://www.postproxy.dev/",
   "files": [
     "dist",
     "README.md",

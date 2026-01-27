@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-01-27
+
+### Fixed
+- Updated repository URL to correct GitHub organization
+- Updated homepage URL to PostProxy website
+
 ## [0.1.1] - 2026-01-27
 
 ### Changed
@@ -24,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/64bitlabs/n8n-nodes-postproxy/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/64bitlabs/n8n-nodes-postproxy/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/64bitlabs/n8n-nodes-postproxy/releases/tag/v0.1.0
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/postproxy/n8n-nodes-postproxy/releases/tag/v0.1.0
