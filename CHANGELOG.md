@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-01-29
+
+### Fixed
+- Removed .cursor directory from repository tracking (IDE-specific configuration)
+
 ## [0.1.12] - 2026-01-29
 
 ### Fixed
@@ -43,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.10...v0.1.12
 [0.1.10]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.2...v0.1.10
 [0.1.2]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.1...v0.1.2
