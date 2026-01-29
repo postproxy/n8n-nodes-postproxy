@@ -18,6 +18,20 @@ class PostProxyApi {
                 },
             },
         ];
+        this.authenticate = {
+            type: "generic",
+            properties: {
+                headers: {
+                    Authorization: "=Bearer {{$credentials.apiKey}}",
+                },
+            },
+        };
+        this.test = {
+            request: {
+                baseURL: "https://api.postproxy.dev/api",
+                url: "/profile_groups/",
+            },
+        };
     }
 }
 exports.PostProxyApi = PostProxyApi;

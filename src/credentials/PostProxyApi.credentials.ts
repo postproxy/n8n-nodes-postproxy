@@ -1,4 +1,9 @@
-import { ICredentialType, INodeProperties } from "n8n-workflow";
+import {
+  IAuthenticateGeneric,
+  ICredentialTestRequest,
+  ICredentialType,
+  INodeProperties,
+} from "n8n-workflow";
 
 export class PostProxyApi implements ICredentialType {
   name = "postProxyApi";
@@ -16,4 +21,20 @@ export class PostProxyApi implements ICredentialType {
       },
     },
   ];
+
+  authenticate: IAuthenticateGeneric = {
+    type: "generic",
+    properties: {
+      headers: {
+        Authorization: "=Bearer {{$credentials.apiKey}}",
+      },
+    },
+  };
+
+  test: ICredentialTestRequest = {
+    request: {
+      baseURL: "https://api.postproxy.dev/api",
+      url: "/profile_groups/",
+    },
+  };
 }
