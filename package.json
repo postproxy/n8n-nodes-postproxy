@@ -34,7 +34,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && copyfiles -u 1 src/**/*.svg dist",
+    "build": "tsc && copyfiles nodes/**/*.svg dist",
     "prepare": "npm run build",
     "dev": "npm run build && npm run watch",
     "watch": "tsc --watch",
@@ -45,6 +45,7 @@
     "version:major": "npm version major"
   },
   "n8n": {
+    "n8nNodesApiVersion": 1,
     "nodes": [
       "dist/nodes/PostProxy/PostProxy.node.js"
     ],
