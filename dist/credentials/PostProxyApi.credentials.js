@@ -24,12 +24,6 @@ class PostProxyApi {
                 },
             },
         };
-        this.test = {
-            request: {
-                baseURL: "https://api.postproxy.dev/api",
-                url: "/profile_groups/",
-            },
-        };
     }
 }
 exports.PostProxyApi = PostProxyApi;

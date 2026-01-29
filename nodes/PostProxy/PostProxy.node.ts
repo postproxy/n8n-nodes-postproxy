@@ -9,6 +9,8 @@ import {
   INodeListSearchItems,
   NodeApiError,
   NodeOperationError,
+  ICredentialTestFunctions,
+  ICredentialsDecrypted,
 } from "n8n-workflow";
 
 const BASE_URL = "https://api.postproxy.dev/api";
@@ -228,6 +230,7 @@ export class PostProxy implements INodeType {
       {
         name: "postProxyApi",
         required: true,
+        testedBy: "testPostProxyConnection",
       },
     ],
     properties: [
@@ -478,11 +481,13 @@ export class PostProxy implements INodeType {
         },
         typeOptions: {
           multipleValues: true,
+          multipleValueButtonText: "Add Media URL",
         },
         required: false,
         description:
-          "Array of media URLs (images or videos) to attach to the post",
+          "Media URLs (images or videos) to attach to the post. Can be entered manually (one per field) or use expressions like {{ $json.mediaUrl }}. Each URL must start with http:// or https://",
         default: [],
+        placeholder: "https://example.com/image.jpg",
       },
       {
         displayName: "Platform Parameters",
@@ -1198,6 +1203,38 @@ export class PostProxy implements INodeType {
         }
       },
     },
+    credentialTest: {
+      async testPostProxyConnection(
+        this: ICredentialTestFunctions,
+        credential: ICredentialsDecrypted,
+      ): Promise<any> {
+        const credentials = credential.data as { apiKey: string };
+        
+        try {
+          const response = await this.helpers.request({
+            method: "GET",
+            url: `${BASE_URL}/profile_groups/`,
+            headers: {
+              Authorization: `Bearer ${credentials.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            json: true,
+            timeout: 30000,
+          });
+
+          // If we get here, the request was successful
+          return {
+            status: "OK",
+            message: "Connection successful",
+          };
+        } catch (error: any) {
+          const statusCode = error.statusCode || error.response?.status;
+          const errorMessage = error.response?.body?.message || error.message || "Unknown error";
+          
+          throw new Error(`Authorization failed: HTTP ${statusCode}: ${errorMessage}. Please check your API key.`);
+        }
+      },
+    },
   };
 
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -1214,9 +1251,7 @@ export class PostProxy implements INodeType {
         const profileGroupRaw = this.getNodeParameter("profileGroup", 0);
         const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
         const profiles = this.getNodeParameter("profiles", 0) as string[];
-        const mediaUrls = this.getNodeParameter("media", 0, []) as
-          | string[]
-          | undefined;
+        const mediaUrls = this.getNodeParameter("media", 0, []) as any;
         const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
         const platformParamsRaw = this.getNodeParameter("platformParams", 0, "{}") as string;
 
@@ -1225,7 +1260,9 @@ export class PostProxy implements INodeType {
           throw new NodeOperationError(
             this.getNode(),
             "Content cannot be empty",
-            { description: "Please provide post content in the 'Content' field." }
+            { 
+              description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field` 
+            }
           );
         }
 
@@ -1274,14 +1311,77 @@ export class PostProxy implements INodeType {
           }
         }
 
-        if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
-          const filteredUrls = mediaUrls
-            .filter(
-              (url) => url && typeof url === "string" && url.trim().length > 0,
-            )
-            .map((url) => url.trim());
-          if (filteredUrls.length > 0) {
-            body.media = filteredUrls;
+        // Handle media URLs - one URL per field
+        if (mediaUrls !== undefined && mediaUrls !== null) {
+          // Helper function to extract a single URL from a value
+          const extractUrl = (value: any): string | null => {
+            if (value === null || value === undefined) {
+              return null;
+            }
+            
+            // If it's already a string, use it
+            if (typeof value === "string") {
+              const trimmed = value.trim();
+              return trimmed.length > 0 ? trimmed : null;
+            }
+            
+            // If it's an object with a 'url' property, extract it
+            if (typeof value === "object" && value !== null && "url" in value) {
+              const urlValue = (value as any).url;
+              if (typeof urlValue === "string") {
+                const trimmed = urlValue.trim();
+                return trimmed.length > 0 ? trimmed : null;
+              }
+              return null;
+            }
+            
+            // If it's an array, take the first element
+            if (Array.isArray(value) && value.length > 0) {
+              return extractUrl(value[0]);
+            }
+            
+            return null;
+          };
+          
+          // Process each field value (multipleValues: true means it's an array)
+          const urlsArray: string[] = [];
+          const invalidUrls: string[] = [];
+          
+          const processValue = (value: any) => {
+            const url = extractUrl(value);
+            if (!url) {
+              return;
+            }
+            
+            // Validate URL format - must start with http:// or https://
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+              urlsArray.push(url);
+            } else {
+              invalidUrls.push(url);
+            }
+          };
+          
+          if (Array.isArray(mediaUrls)) {
+            // Multiple fields - process each one
+            mediaUrls.forEach(processValue);
+          } else {
+            // Single field
+            processValue(mediaUrls);
+          }
+          
+          if (invalidUrls.length > 0 && urlsArray.length === 0) {
+            // All URLs were invalid
+            throw new NodeOperationError(
+              this.getNode(),
+              "Invalid media URLs provided",
+              {
+                description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
+              }
+            );
+          }
+          
+          if (urlsArray.length > 0) {
+            body.media = urlsArray;
           }
         }
 

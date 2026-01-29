@@ -182,6 +182,7 @@ class PostProxy {
                 {
                     name: "postProxyApi",
                     required: true,
+                    testedBy: "testPostProxyConnection",
                 },
             ],
             properties: [
@@ -431,10 +432,12 @@ class PostProxy {
                     },
                     typeOptions: {
                         multipleValues: true,
+                        multipleValueButtonText: "Add Media URL",
                     },
                     required: false,
-                    description: "Array of media URLs (images or videos) to attach to the post",
+                    description: "Media URLs (images or videos) to attach to the post. Can be entered manually (one per field) or use expressions like {{ $json.mediaUrl }}. Each URL must start with http:// or https://",
                     default: [],
+                    placeholder: "https://example.com/image.jpg",
                 },
                 {
                     displayName: "Platform Parameters",
@@ -1114,6 +1117,34 @@ class PostProxy {
                     }
                 },
             },
+            credentialTest: {
+                async testPostProxyConnection(credential) {
+                    var _a, _b, _c;
+                    const credentials = credential.data;
+                    try {
+                        const response = await this.helpers.request({
+                            method: "GET",
+                            url: `${BASE_URL}/profile_groups/`,
+                            headers: {
+                                Authorization: `Bearer ${credentials.apiKey}`,
+                                "Content-Type": "application/json",
+                            },
+                            json: true,
+                            timeout: 30000,
+                        });
+                        // If we get here, the request was successful
+                        return {
+                            status: "OK",
+                            message: "Connection successful",
+                        };
+                    }
+                    catch (error) {
+                        const statusCode = error.statusCode || ((_a = error.response) === null || _a === void 0 ? void 0 : _a.status);
+                        const errorMessage = ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.body) === null || _c === void 0 ? void 0 : _c.message) || error.message || "Unknown error";
+                        throw new Error(`Authorization failed: HTTP ${statusCode}: ${errorMessage}. Please check your API key.`);
+                    }
+                },
+            },
         };
     }
     async execute() {
@@ -1133,7 +1164,9 @@ class PostProxy {
                 const platformParamsRaw = this.getNodeParameter("platformParams", 0, "{}");
                 // Validation
                 if (!content || content.trim().length === 0) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Content cannot be empty", { description: "Please provide post content in the 'Content' field." });
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Content cannot be empty", {
+                        description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field`
+                    });
                 }
                 if (!profileGroupId) {
                     throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Profile Group must be selected", { description: "Please select a profile group to publish to." });
@@ -1162,12 +1195,65 @@ class PostProxy {
                         body.post.scheduled_at = publishAt.trim();
                     }
                 }
-                if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
-                    const filteredUrls = mediaUrls
-                        .filter((url) => url && typeof url === "string" && url.trim().length > 0)
-                        .map((url) => url.trim());
-                    if (filteredUrls.length > 0) {
-                        body.media = filteredUrls;
+                // Handle media URLs - one URL per field
+                if (mediaUrls !== undefined && mediaUrls !== null) {
+                    // Helper function to extract a single URL from a value
+                    const extractUrl = (value) => {
+                        if (value === null || value === undefined) {
+                            return null;
+                        }
+                        // If it's already a string, use it
+                        if (typeof value === "string") {
+                            const trimmed = value.trim();
+                            return trimmed.length > 0 ? trimmed : null;
+                        }
+                        // If it's an object with a 'url' property, extract it
+                        if (typeof value === "object" && value !== null && "url" in value) {
+                            const urlValue = value.url;
+                            if (typeof urlValue === "string") {
+                                const trimmed = urlValue.trim();
+                                return trimmed.length > 0 ? trimmed : null;
+                            }
+                            return null;
+                        }
+                        // If it's an array, take the first element
+                        if (Array.isArray(value) && value.length > 0) {
+                            return extractUrl(value[0]);
+                        }
+                        return null;
+                    };
+                    // Process each field value (multipleValues: true means it's an array)
+                    const urlsArray = [];
+                    const invalidUrls = [];
+                    const processValue = (value) => {
+                        const url = extractUrl(value);
+                        if (!url) {
+                            return;
+                        }
+                        // Validate URL format - must start with http:// or https://
+                        if (url.startsWith("http://") || url.startsWith("https://")) {
+                            urlsArray.push(url);
+                        }
+                        else {
+                            invalidUrls.push(url);
+                        }
+                    };
+                    if (Array.isArray(mediaUrls)) {
+                        // Multiple fields - process each one
+                        mediaUrls.forEach(processValue);
+                    }
+                    else {
+                        // Single field
+                        processValue(mediaUrls);
+                    }
+                    if (invalidUrls.length > 0 && urlsArray.length === 0) {
+                        // All URLs were invalid
+                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Invalid media URLs provided", {
+                            description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
+                        });
+                    }
+                    if (urlsArray.length > 0) {
+                        body.media = urlsArray;
                     }
                 }
                 // Parse and add platform parameters if provided

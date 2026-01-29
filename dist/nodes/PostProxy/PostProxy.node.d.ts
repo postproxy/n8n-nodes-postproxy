@@ -1,4 +1,4 @@
-import { IExecuteFunctions, ILoadOptionsFunctions, INodeExecutionData, INodeType, INodeTypeDescription, INodeListSearchResult } from "n8n-workflow";
+import { IExecuteFunctions, ILoadOptionsFunctions, INodeExecutionData, INodeType, INodeTypeDescription, INodeListSearchResult, ICredentialTestFunctions, ICredentialsDecrypted } from "n8n-workflow";
 export declare class PostProxy implements INodeType {
     description: INodeTypeDescription;
     methods: {
@@ -16,6 +16,9 @@ export declare class PostProxy implements INodeType {
                 name: string;
                 value: string;
             }>>;
+        };
+        credentialTest: {
+            testPostProxyConnection(this: ICredentialTestFunctions, credential: ICredentialsDecrypted): Promise<any>;
         };
     };
     execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]>;
