@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-postproxy",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "n8n community node for PostProxy API - unified API for publishing and scheduling posts across multiple social media platforms",
   "license": "MIT",
   "main": "dist/index.js",
