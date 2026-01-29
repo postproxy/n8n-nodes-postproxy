@@ -17,7 +17,8 @@
     "automation"
   ],
   "author": {
-    "name": "64bitlabs"
+    "name": "Dmitry Sereda",
+    "email": "contact@postproxy.dev"
   },
   "repository": {
     "type": "git",
