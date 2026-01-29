@@ -1,4 +1,4 @@
-import {
+import type {
   IAuthenticateGeneric,
   ICredentialTestRequest,
   ICredentialType,
@@ -7,18 +7,19 @@ import {
 
 export class PostProxyApi implements ICredentialType {
   name = "postProxyApi";
+
   displayName = "PostProxy API";
+
   documentationUrl = "https://www.postproxy.dev/getting-started/overview/";
+
   properties: INodeProperties[] = [
     {
       displayName: "API Key",
       name: "apiKey",
       type: "string",
+      typeOptions: { password: true },
       default: "",
       required: true,
-      typeOptions: {
-        password: true,
-      },
     },
   ];
 

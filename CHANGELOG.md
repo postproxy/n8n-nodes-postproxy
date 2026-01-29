@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-01-29
+
+### Fixed
+- Updated credentials file to use TypeScript `import type` syntax for better compatibility with n8n verification
+- Reordered exports in index.ts to export credentials before nodes (following n8n conventions)
+- Improved credentials file structure alignment with official n8n standards
+
 ## [0.1.2] - 2026-01-27
 
 ### Fixed
@@ -30,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.2...v0.1.10
 [0.1.2]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/postproxy/n8n-nodes-postproxy/releases/tag/v0.1.0

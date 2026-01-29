@@ -15,5 +15,5 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // Export all nodes and credentials
-__exportStar(require("./nodes/PostProxy/PostProxy.node"), exports);
 __exportStar(require("./credentials/PostProxyApi.credentials"), exports);
+__exportStar(require("./nodes/PostProxy/PostProxy.node"), exports);
