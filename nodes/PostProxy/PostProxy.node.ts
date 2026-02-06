@@ -1238,174 +1238,179 @@ export class PostProxy implements INodeType {
   };
 
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-    const resource = this.getNodeParameter("resource", 0) as string;
-    const operation = this.getNodeParameter("operation", 0) as string;
+    const items = this.getInputData();
+    const returnData: INodeExecutionData[] = [];
 
-    let responseData: any;
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const resource = this.getNodeParameter("resource", i) as string;
+        const operation = this.getNodeParameter("operation", i) as string;
 
-    // POST RESOURCE
-    if (resource === "post") {
-      if (operation === "create") {
-        const content = this.getNodeParameter("content", 0) as string;
-        const publishType = this.getNodeParameter("publishType", 0) as string;
-        const profileGroupRaw = this.getNodeParameter("profileGroup", 0);
-        const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
-        const profiles = this.getNodeParameter("profiles", 0) as string[];
-        const mediaUrls = this.getNodeParameter("media", 0, []) as any;
-        const publishAt = this.getNodeParameter("publish_at", 0, "") as string | undefined;
-        const platformParamsRaw = this.getNodeParameter("platformParams", 0, "{}") as string;
+        let responseData: any;
 
-        // Validation
-        if (!content || content.trim().length === 0) {
-          throw new NodeOperationError(
-            this.getNode(),
-            "Content cannot be empty",
-            { 
-              description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field` 
+        // POST RESOURCE
+        if (resource === "post") {
+          if (operation === "create") {
+            const content = this.getNodeParameter("content", i) as string;
+            const publishType = this.getNodeParameter("publishType", i) as string;
+            const profileGroupRaw = this.getNodeParameter("profileGroup", i);
+            const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
+            const profiles = this.getNodeParameter("profiles", i) as string[];
+            const mediaUrls = this.getNodeParameter("media", i, []) as any;
+            const publishAt = this.getNodeParameter("publish_at", i, "") as string | undefined;
+            const platformParamsRaw = this.getNodeParameter("platformParams", i, "{}") as string;
+
+            // Validation
+            if (!content || content.trim().length === 0) {
+              throw new NodeOperationError(
+                this.getNode(),
+                "Content cannot be empty",
+                { 
+                  description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field` 
+                }
+              );
             }
-          );
-        }
 
-        if (!profileGroupId) {
-          throw new NodeOperationError(
-            this.getNode(),
-            "Profile Group must be selected",
-            { description: "Please select a profile group to publish to." }
-          );
-        }
-
-        if (!profiles || profiles.length === 0) {
-          throw new NodeOperationError(
-            this.getNode(),
-            "At least one profile must be selected",
-            { description: "Please select at least one social media profile to publish to." }
-          );
-        }
-
-        if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
-          throw new NodeOperationError(
-            this.getNode(),
-            "Publish At date is required",
-            { description: "When Publish Type is 'Schedule', you must provide a Publish At date." }
-          );
-        }
-
-        // Build request body according to API specification
-        const body: any = {
-          post: {
-            body: content.trim(),
-          },
-          profiles: profiles,
-        };
-
-        if (publishType === "schedule" && publishAt) {
-          body.post.scheduled_at = publishAt.trim();
-        }
-
-        // Add draft parameter if creating a draft post
-        if (publishType === "draft") {
-          body.post.draft = true;
-          // Draft posts can optionally have scheduled_at
-          if (publishAt && publishAt.trim().length > 0) {
-            body.post.scheduled_at = publishAt.trim();
-          }
-        }
-
-        // Handle media URLs - one URL per field
-        if (mediaUrls !== undefined && mediaUrls !== null) {
-          // Helper function to extract a single URL from a value
-          const extractUrl = (value: any): string | null => {
-            if (value === null || value === undefined) {
-              return null;
+            if (!profileGroupId) {
+              throw new NodeOperationError(
+                this.getNode(),
+                "Profile Group must be selected",
+                { description: "Please select a profile group to publish to." }
+              );
             }
-            
-            // If it's already a string, use it
-            if (typeof value === "string") {
-              const trimmed = value.trim();
-              return trimmed.length > 0 ? trimmed : null;
+
+            if (!profiles || profiles.length === 0) {
+              throw new NodeOperationError(
+                this.getNode(),
+                "At least one profile must be selected",
+                { description: "Please select at least one social media profile to publish to." }
+              );
             }
-            
-            // If it's an object with a 'url' property, extract it
-            if (typeof value === "object" && value !== null && "url" in value) {
-              const urlValue = (value as any).url;
-              if (typeof urlValue === "string") {
-                const trimmed = urlValue.trim();
-                return trimmed.length > 0 ? trimmed : null;
+
+            if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
+              throw new NodeOperationError(
+                this.getNode(),
+                "Publish At date is required",
+                { description: "When Publish Type is 'Schedule', you must provide a Publish At date." }
+              );
+            }
+
+            // Build request body according to API specification
+            const body: any = {
+              post: {
+                body: content.trim(),
+              },
+              profiles: profiles,
+            };
+
+            if (publishType === "schedule" && publishAt) {
+              body.post.scheduled_at = publishAt.trim();
+            }
+
+            // Add draft parameter if creating a draft post
+            if (publishType === "draft") {
+              body.post.draft = true;
+              // Draft posts can optionally have scheduled_at
+              if (publishAt && publishAt.trim().length > 0) {
+                body.post.scheduled_at = publishAt.trim();
               }
-              return null;
             }
-            
-            // If it's an array, take the first element
-            if (Array.isArray(value) && value.length > 0) {
-              return extractUrl(value[0]);
-            }
-            
-            return null;
-          };
-          
-          // Process each field value (multipleValues: true means it's an array)
-          const urlsArray: string[] = [];
-          const invalidUrls: string[] = [];
-          
-          const processValue = (value: any) => {
-            const url = extractUrl(value);
-            if (!url) {
-              return;
-            }
-            
-            // Validate URL format - must start with http:// or https://
-            if (url.startsWith("http://") || url.startsWith("https://")) {
-              urlsArray.push(url);
-            } else {
-              invalidUrls.push(url);
-            }
-          };
-          
-          if (Array.isArray(mediaUrls)) {
-            // Multiple fields - process each one
-            mediaUrls.forEach(processValue);
-          } else {
-            // Single field
-            processValue(mediaUrls);
-          }
-          
-          if (invalidUrls.length > 0 && urlsArray.length === 0) {
-            // All URLs were invalid
-            throw new NodeOperationError(
-              this.getNode(),
-              "Invalid media URLs provided",
-              {
-                description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
+
+            // Handle media URLs - one URL per field
+            if (mediaUrls !== undefined && mediaUrls !== null) {
+              // Helper function to extract a single URL from a value
+              const extractUrl = (value: any): string | null => {
+                if (value === null || value === undefined) {
+                  return null;
+                }
+                
+                // If it's already a string, use it
+                if (typeof value === "string") {
+                  const trimmed = value.trim();
+                  return trimmed.length > 0 ? trimmed : null;
+                }
+                
+                // If it's an object with a 'url' property, extract it
+                if (typeof value === "object" && value !== null && "url" in value) {
+                  const urlValue = (value as any).url;
+                  if (typeof urlValue === "string") {
+                    const trimmed = urlValue.trim();
+                    return trimmed.length > 0 ? trimmed : null;
+                  }
+                  return null;
+                }
+                
+                // If it's an array, take the first element
+                if (Array.isArray(value) && value.length > 0) {
+                  return extractUrl(value[0]);
+                }
+                
+                return null;
+              };
+              
+              // Process each field value (multipleValues: true means it's an array)
+              const urlsArray: string[] = [];
+              const invalidUrls: string[] = [];
+              
+              const processValue = (value: any) => {
+                const url = extractUrl(value);
+                if (!url) {
+                  return;
+                }
+                
+                // Validate URL format - must start with http:// or https://
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                  urlsArray.push(url);
+                } else {
+                  invalidUrls.push(url);
+                }
+              };
+              
+              if (Array.isArray(mediaUrls)) {
+                // Multiple fields - process each one
+                mediaUrls.forEach(processValue);
+              } else {
+                // Single field
+                processValue(mediaUrls);
               }
-            );
-          }
-          
-          if (urlsArray.length > 0) {
-            body.media = urlsArray;
-          }
-        }
-
-        // Parse and add platform parameters if provided
-        if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
-          try {
-            const platformParams = typeof platformParamsRaw === "string" 
-              ? JSON.parse(platformParamsRaw) 
-              : platformParamsRaw;
-            if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
-              body.params = platformParams;
+              
+              if (invalidUrls.length > 0 && urlsArray.length === 0) {
+                // All URLs were invalid
+                throw new NodeOperationError(
+                  this.getNode(),
+                  "Invalid media URLs provided",
+                  {
+                    description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
+                  }
+                );
+              }
+              
+              if (urlsArray.length > 0) {
+                body.media = urlsArray;
+              }
             }
-          } catch (error) {
-            throw new NodeOperationError(
-              this.getNode(),
-              "Invalid Platform Parameters JSON",
-              { description: "Platform Parameters must be valid JSON. Error: " + (error as Error).message }
-            );
-          }
-        }
 
-        responseData = await makeRequest.call(this, "POST", "/posts", body);
+            // Parse and add platform parameters if provided
+            if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
+              try {
+                const platformParams = typeof platformParamsRaw === "string" 
+                  ? JSON.parse(platformParamsRaw) 
+                  : platformParamsRaw;
+                if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
+                  body.params = platformParams;
+                }
+              } catch (error) {
+                throw new NodeOperationError(
+                  this.getNode(),
+                  "Invalid Platform Parameters JSON",
+                  { description: "Platform Parameters must be valid JSON. Error: " + (error as Error).message }
+                );
+              }
+            }
+
+            responseData = await makeRequest.call(this, "POST", "/posts", body);
       } else if (operation === "delete") {
-        const postIdRaw = this.getNodeParameter("postId", 0);
+        const postIdRaw = this.getNodeParameter("postId", i);
         const postId = extractResourceLocatorValue(postIdRaw);
         
         if (!postId) {
@@ -1418,7 +1423,7 @@ export class PostProxy implements INodeType {
         
         responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}`);
       } else if (operation === "get") {
-        const postIdRaw = this.getNodeParameter("postId", 0);
+        const postIdRaw = this.getNodeParameter("postId", i);
         const postId = extractResourceLocatorValue(postIdRaw);
         
         if (!postId) {
@@ -1431,13 +1436,13 @@ export class PostProxy implements INodeType {
         
         responseData = await makeRequest.call(this, "GET", `/posts/${postId}`);
         
-        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         if (simplify && responseData) {
           responseData = simplifyPost(responseData);
         }
       } else if (operation === "getMany") {
-        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
-        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+        const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         
         let allItems: any[] = [];
         let currentPage = 0;
@@ -1445,8 +1450,8 @@ export class PostProxy implements INodeType {
         let perPage = 10;
         
         if (!returnAll) {
-          currentPage = this.getNodeParameter("page", 0, 0) as number;
-          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+          currentPage = this.getNodeParameter("page", i, 0) as number;
+          perPage = this.getNodeParameter("per_page", i, 10) as number;
         }
         
         do {
@@ -1469,7 +1474,7 @@ export class PostProxy implements INodeType {
         } while (returnAll && allItems.length < total);
         
         if (!returnAll) {
-          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const limit = this.getNodeParameter("limit", i, 50) as number;
           allItems = allItems.slice(0, limit);
         }
         
@@ -1484,9 +1489,9 @@ export class PostProxy implements INodeType {
           data: allItems,
         };
       } else if (operation === "update") {
-        const postIdRaw = this.getNodeParameter("postId", 0);
+        const postIdRaw = this.getNodeParameter("postId", i);
         const postId = extractResourceLocatorValue(postIdRaw);
-        const updateFields = this.getNodeParameter("updateFields", 0, {}) as any;
+        const updateFields = this.getNodeParameter("updateFields", i, {}) as any;
         
         if (!postId) {
           throw new NodeOperationError(
@@ -1520,7 +1525,7 @@ export class PostProxy implements INodeType {
         
         responseData = await makeRequest.call(this, "PATCH", `/posts/${postId}`, body);
       } else if (operation === "publish") {
-        const postIdRaw = this.getNodeParameter("postId", 0);
+        const postIdRaw = this.getNodeParameter("postId", i);
         const postId = extractResourceLocatorValue(postIdRaw);
         
         if (!postId) {
@@ -1533,7 +1538,7 @@ export class PostProxy implements INodeType {
         
         responseData = await makeRequest.call(this, "POST", `/posts/${postId}/publish`);
         
-        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         if (simplify && responseData) {
           responseData = simplifyPost(responseData);
         }
@@ -1543,7 +1548,7 @@ export class PostProxy implements INodeType {
     // PROFILE RESOURCE
     else if (resource === "profile") {
       if (operation === "get") {
-        const profileIdRaw = this.getNodeParameter("profileId", 0);
+        const profileIdRaw = this.getNodeParameter("profileId", i);
         const profileId = extractResourceLocatorValue(profileIdRaw);
         
         if (!profileId) {
@@ -1556,13 +1561,13 @@ export class PostProxy implements INodeType {
         
         responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
         
-        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         if (simplify && responseData) {
           responseData = simplifyProfile(responseData);
         }
       } else if (operation === "getMany") {
-        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
-        const simplify = this.getNodeParameter("simplify", 0, true) as boolean;
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+        const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         
         let allItems: any[] = [];
         let currentPage = 0;
@@ -1570,8 +1575,8 @@ export class PostProxy implements INodeType {
         let perPage = 10;
         
         if (!returnAll) {
-          currentPage = this.getNodeParameter("page", 0, 0) as number;
-          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+          currentPage = this.getNodeParameter("page", i, 0) as number;
+          perPage = this.getNodeParameter("per_page", i, 10) as number;
         }
         
         do {
@@ -1594,7 +1599,7 @@ export class PostProxy implements INodeType {
         } while (returnAll && allItems.length < total);
         
         if (!returnAll) {
-          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const limit = this.getNodeParameter("limit", i, 50) as number;
           allItems = allItems.slice(0, limit);
         }
         
@@ -1614,7 +1619,7 @@ export class PostProxy implements INodeType {
     // PROFILE GROUP RESOURCE
     else if (resource === "profileGroup") {
       if (operation === "getMany") {
-        const returnAll = this.getNodeParameter("returnAll", 0, false) as boolean;
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
         
         let allItems: any[] = [];
         let currentPage = 0;
@@ -1622,8 +1627,8 @@ export class PostProxy implements INodeType {
         let perPage = 10;
         
         if (!returnAll) {
-          currentPage = this.getNodeParameter("page", 0, 0) as number;
-          perPage = this.getNodeParameter("per_page", 0, 10) as number;
+          currentPage = this.getNodeParameter("page", i, 0) as number;
+          perPage = this.getNodeParameter("per_page", i, 10) as number;
         }
         
         do {
@@ -1646,7 +1651,7 @@ export class PostProxy implements INodeType {
         } while (returnAll && allItems.length < total);
         
         if (!returnAll) {
-          const limit = this.getNodeParameter("limit", 0, 50) as number;
+          const limit = this.getNodeParameter("limit", i, 50) as number;
           allItems = allItems.slice(0, limit);
         }
         
@@ -1659,20 +1664,40 @@ export class PostProxy implements INodeType {
       }
     }
 
-    if (responseData === undefined) {
-      throw new NodeOperationError(
-        this.getNode(),
-        `The operation "${operation}" for resource "${resource}" is not supported`,
-        { description: "This combination of resource and operation is not available." }
-      );
+        if (responseData === undefined) {
+          throw new NodeOperationError(
+            this.getNode(),
+            `The operation "${operation}" for resource "${resource}" is not supported`,
+            { description: "This combination of resource and operation is not available." }
+          );
+        }
+
+        // Add pairedItem to the response
+        returnData.push({
+          json: responseData,
+          pairedItem: { item: i },
+        });
+      } catch (error) {
+        // Handle errors with continue on fail support
+        if (this.continueOnFail()) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorDescription = error instanceof NodeApiError || error instanceof NodeOperationError
+            ? error.description || errorMessage
+            : errorMessage;
+          
+          returnData.push({
+            json: {
+              error: errorMessage,
+              description: errorDescription,
+            },
+            pairedItem: { item: i },
+          });
+          continue;
+        }
+        throw error;
+      }
     }
 
-    return [
-      [
-        {
-          json: responseData,
-        },
-      ],
-    ];
+    return [returnData];
   }
 }

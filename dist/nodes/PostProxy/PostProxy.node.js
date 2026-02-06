@@ -1148,333 +1148,356 @@ class PostProxy {
         };
     }
     async execute() {
-        const resource = this.getNodeParameter("resource", 0);
-        const operation = this.getNodeParameter("operation", 0);
-        let responseData;
-        // POST RESOURCE
-        if (resource === "post") {
-            if (operation === "create") {
-                const content = this.getNodeParameter("content", 0);
-                const publishType = this.getNodeParameter("publishType", 0);
-                const profileGroupRaw = this.getNodeParameter("profileGroup", 0);
-                const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
-                const profiles = this.getNodeParameter("profiles", 0);
-                const mediaUrls = this.getNodeParameter("media", 0, []);
-                const publishAt = this.getNodeParameter("publish_at", 0, "");
-                const platformParamsRaw = this.getNodeParameter("platformParams", 0, "{}");
-                // Validation
-                if (!content || content.trim().length === 0) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Content cannot be empty", {
-                        description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field`
-                    });
-                }
-                if (!profileGroupId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Profile Group must be selected", { description: "Please select a profile group to publish to." });
-                }
-                if (!profiles || profiles.length === 0) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "At least one profile must be selected", { description: "Please select at least one social media profile to publish to." });
-                }
-                if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Publish At date is required", { description: "When Publish Type is 'Schedule', you must provide a Publish At date." });
-                }
-                // Build request body according to API specification
-                const body = {
-                    post: {
-                        body: content.trim(),
-                    },
-                    profiles: profiles,
-                };
-                if (publishType === "schedule" && publishAt) {
-                    body.post.scheduled_at = publishAt.trim();
-                }
-                // Add draft parameter if creating a draft post
-                if (publishType === "draft") {
-                    body.post.draft = true;
-                    // Draft posts can optionally have scheduled_at
-                    if (publishAt && publishAt.trim().length > 0) {
-                        body.post.scheduled_at = publishAt.trim();
-                    }
-                }
-                // Handle media URLs - one URL per field
-                if (mediaUrls !== undefined && mediaUrls !== null) {
-                    // Helper function to extract a single URL from a value
-                    const extractUrl = (value) => {
-                        if (value === null || value === undefined) {
-                            return null;
+        const items = this.getInputData();
+        const returnData = [];
+        for (let i = 0; i < items.length; i++) {
+            try {
+                const resource = this.getNodeParameter("resource", i);
+                const operation = this.getNodeParameter("operation", i);
+                let responseData;
+                // POST RESOURCE
+                if (resource === "post") {
+                    if (operation === "create") {
+                        const content = this.getNodeParameter("content", i);
+                        const publishType = this.getNodeParameter("publishType", i);
+                        const profileGroupRaw = this.getNodeParameter("profileGroup", i);
+                        const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
+                        const profiles = this.getNodeParameter("profiles", i);
+                        const mediaUrls = this.getNodeParameter("media", i, []);
+                        const publishAt = this.getNodeParameter("publish_at", i, "");
+                        const platformParamsRaw = this.getNodeParameter("platformParams", i, "{}");
+                        // Validation
+                        if (!content || content.trim().length === 0) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Content cannot be empty", {
+                                description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field`
+                            });
                         }
-                        // If it's already a string, use it
-                        if (typeof value === "string") {
-                            const trimmed = value.trim();
-                            return trimmed.length > 0 ? trimmed : null;
+                        if (!profileGroupId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Profile Group must be selected", { description: "Please select a profile group to publish to." });
                         }
-                        // If it's an object with a 'url' property, extract it
-                        if (typeof value === "object" && value !== null && "url" in value) {
-                            const urlValue = value.url;
-                            if (typeof urlValue === "string") {
-                                const trimmed = urlValue.trim();
-                                return trimmed.length > 0 ? trimmed : null;
+                        if (!profiles || profiles.length === 0) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "At least one profile must be selected", { description: "Please select at least one social media profile to publish to." });
+                        }
+                        if (publishType === "schedule" && (!publishAt || publishAt.trim().length === 0)) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Publish At date is required", { description: "When Publish Type is 'Schedule', you must provide a Publish At date." });
+                        }
+                        // Build request body according to API specification
+                        const body = {
+                            post: {
+                                body: content.trim(),
+                            },
+                            profiles: profiles,
+                        };
+                        if (publishType === "schedule" && publishAt) {
+                            body.post.scheduled_at = publishAt.trim();
+                        }
+                        // Add draft parameter if creating a draft post
+                        if (publishType === "draft") {
+                            body.post.draft = true;
+                            // Draft posts can optionally have scheduled_at
+                            if (publishAt && publishAt.trim().length > 0) {
+                                body.post.scheduled_at = publishAt.trim();
                             }
-                            return null;
                         }
-                        // If it's an array, take the first element
-                        if (Array.isArray(value) && value.length > 0) {
-                            return extractUrl(value[0]);
+                        // Handle media URLs - one URL per field
+                        if (mediaUrls !== undefined && mediaUrls !== null) {
+                            // Helper function to extract a single URL from a value
+                            const extractUrl = (value) => {
+                                if (value === null || value === undefined) {
+                                    return null;
+                                }
+                                // If it's already a string, use it
+                                if (typeof value === "string") {
+                                    const trimmed = value.trim();
+                                    return trimmed.length > 0 ? trimmed : null;
+                                }
+                                // If it's an object with a 'url' property, extract it
+                                if (typeof value === "object" && value !== null && "url" in value) {
+                                    const urlValue = value.url;
+                                    if (typeof urlValue === "string") {
+                                        const trimmed = urlValue.trim();
+                                        return trimmed.length > 0 ? trimmed : null;
+                                    }
+                                    return null;
+                                }
+                                // If it's an array, take the first element
+                                if (Array.isArray(value) && value.length > 0) {
+                                    return extractUrl(value[0]);
+                                }
+                                return null;
+                            };
+                            // Process each field value (multipleValues: true means it's an array)
+                            const urlsArray = [];
+                            const invalidUrls = [];
+                            const processValue = (value) => {
+                                const url = extractUrl(value);
+                                if (!url) {
+                                    return;
+                                }
+                                // Validate URL format - must start with http:// or https://
+                                if (url.startsWith("http://") || url.startsWith("https://")) {
+                                    urlsArray.push(url);
+                                }
+                                else {
+                                    invalidUrls.push(url);
+                                }
+                            };
+                            if (Array.isArray(mediaUrls)) {
+                                // Multiple fields - process each one
+                                mediaUrls.forEach(processValue);
+                            }
+                            else {
+                                // Single field
+                                processValue(mediaUrls);
+                            }
+                            if (invalidUrls.length > 0 && urlsArray.length === 0) {
+                                // All URLs were invalid
+                                throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Invalid media URLs provided", {
+                                    description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
+                                });
+                            }
+                            if (urlsArray.length > 0) {
+                                body.media = urlsArray;
+                            }
                         }
-                        return null;
-                    };
-                    // Process each field value (multipleValues: true means it's an array)
-                    const urlsArray = [];
-                    const invalidUrls = [];
-                    const processValue = (value) => {
-                        const url = extractUrl(value);
-                        if (!url) {
-                            return;
+                        // Parse and add platform parameters if provided
+                        if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
+                            try {
+                                const platformParams = typeof platformParamsRaw === "string"
+                                    ? JSON.parse(platformParamsRaw)
+                                    : platformParamsRaw;
+                                if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
+                                    body.params = platformParams;
+                                }
+                            }
+                            catch (error) {
+                                throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Invalid Platform Parameters JSON", { description: "Platform Parameters must be valid JSON. Error: " + error.message });
+                            }
                         }
-                        // Validate URL format - must start with http:// or https://
-                        if (url.startsWith("http://") || url.startsWith("https://")) {
-                            urlsArray.push(url);
+                        responseData = await makeRequest.call(this, "POST", "/posts", body);
+                    }
+                    else if (operation === "delete") {
+                        const postIdRaw = this.getNodeParameter("postId", i);
+                        const postId = extractResourceLocatorValue(postIdRaw);
+                        if (!postId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
                         }
-                        else {
-                            invalidUrls.push(url);
+                        responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}`);
+                    }
+                    else if (operation === "get") {
+                        const postIdRaw = this.getNodeParameter("postId", i);
+                        const postId = extractResourceLocatorValue(postIdRaw);
+                        if (!postId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
                         }
-                    };
-                    if (Array.isArray(mediaUrls)) {
-                        // Multiple fields - process each one
-                        mediaUrls.forEach(processValue);
-                    }
-                    else {
-                        // Single field
-                        processValue(mediaUrls);
-                    }
-                    if (invalidUrls.length > 0 && urlsArray.length === 0) {
-                        // All URLs were invalid
-                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Invalid media URLs provided", {
-                            description: `All media URLs were invalid. URLs must start with http:// or https://\n\nInvalid URLs: ${invalidUrls.join(", ")}\n\nIf you're using expressions like {{ $json.url }}, make sure the field contains a valid URL string. If it's an object, access the URL property explicitly (e.g., {{ $json.media.url }}).`
-                        });
-                    }
-                    if (urlsArray.length > 0) {
-                        body.media = urlsArray;
-                    }
-                }
-                // Parse and add platform parameters if provided
-                if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
-                    try {
-                        const platformParams = typeof platformParamsRaw === "string"
-                            ? JSON.parse(platformParamsRaw)
-                            : platformParamsRaw;
-                        if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
-                            body.params = platformParams;
+                        responseData = await makeRequest.call(this, "GET", `/posts/${postId}`);
+                        const simplify = this.getNodeParameter("simplify", i, true);
+                        if (simplify && responseData) {
+                            responseData = simplifyPost(responseData);
                         }
                     }
-                    catch (error) {
-                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Invalid Platform Parameters JSON", { description: "Platform Parameters must be valid JSON. Error: " + error.message });
+                    else if (operation === "getMany") {
+                        const returnAll = this.getNodeParameter("returnAll", i, false);
+                        const simplify = this.getNodeParameter("simplify", i, true);
+                        let allItems = [];
+                        let currentPage = 0;
+                        let total = 0;
+                        let perPage = 10;
+                        if (!returnAll) {
+                            currentPage = this.getNodeParameter("page", i, 0);
+                            perPage = this.getNodeParameter("per_page", i, 10);
+                        }
+                        do {
+                            const queryParams = new URLSearchParams();
+                            queryParams.append("page", String(currentPage));
+                            queryParams.append("per_page", String(perPage));
+                            const response = await makeRequest.call(this, "GET", `/posts?${queryParams.toString()}`);
+                            const items = response.data || response.items || (Array.isArray(response) ? response : []);
+                            allItems = allItems.concat(items);
+                            if (returnAll) {
+                                total = response.total || items.length;
+                                perPage = response.per_page || perPage;
+                                currentPage++;
+                            }
+                            else {
+                                break;
+                            }
+                        } while (returnAll && allItems.length < total);
+                        if (!returnAll) {
+                            const limit = this.getNodeParameter("limit", i, 50);
+                            allItems = allItems.slice(0, limit);
+                        }
+                        if (simplify) {
+                            allItems = allItems.map((post) => simplifyPost(post));
+                        }
+                        responseData = {
+                            total: returnAll ? total : allItems.length,
+                            page: returnAll ? 0 : currentPage,
+                            per_page: perPage,
+                            data: allItems,
+                        };
+                    }
+                    else if (operation === "update") {
+                        const postIdRaw = this.getNodeParameter("postId", i);
+                        const postId = extractResourceLocatorValue(postIdRaw);
+                        const updateFields = this.getNodeParameter("updateFields", i, {});
+                        if (!postId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
+                        }
+                        // Build update body
+                        const body = {
+                            post: {},
+                        };
+                        if (updateFields.content !== undefined && updateFields.content !== "") {
+                            body.post.body = updateFields.content;
+                        }
+                        if (updateFields.scheduled_at !== undefined && updateFields.scheduled_at !== "") {
+                            body.post.scheduled_at = updateFields.scheduled_at;
+                        }
+                        // Ensure at least one field is being updated
+                        if (Object.keys(body.post).length === 0) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "At least one field must be provided to update", { description: "Please provide at least one field (Content or Scheduled At) to update the post." });
+                        }
+                        responseData = await makeRequest.call(this, "PATCH", `/posts/${postId}`, body);
+                    }
+                    else if (operation === "publish") {
+                        const postIdRaw = this.getNodeParameter("postId", i);
+                        const postId = extractResourceLocatorValue(postIdRaw);
+                        if (!postId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
+                        }
+                        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/publish`);
+                        const simplify = this.getNodeParameter("simplify", i, true);
+                        if (simplify && responseData) {
+                            responseData = simplifyPost(responseData);
+                        }
                     }
                 }
-                responseData = await makeRequest.call(this, "POST", "/posts", body);
-            }
-            else if (operation === "delete") {
-                const postIdRaw = this.getNodeParameter("postId", 0);
-                const postId = extractResourceLocatorValue(postIdRaw);
-                if (!postId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
-                }
-                responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}`);
-            }
-            else if (operation === "get") {
-                const postIdRaw = this.getNodeParameter("postId", 0);
-                const postId = extractResourceLocatorValue(postIdRaw);
-                if (!postId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
-                }
-                responseData = await makeRequest.call(this, "GET", `/posts/${postId}`);
-                const simplify = this.getNodeParameter("simplify", 0, true);
-                if (simplify && responseData) {
-                    responseData = simplifyPost(responseData);
-                }
-            }
-            else if (operation === "getMany") {
-                const returnAll = this.getNodeParameter("returnAll", 0, false);
-                const simplify = this.getNodeParameter("simplify", 0, true);
-                let allItems = [];
-                let currentPage = 0;
-                let total = 0;
-                let perPage = 10;
-                if (!returnAll) {
-                    currentPage = this.getNodeParameter("page", 0, 0);
-                    perPage = this.getNodeParameter("per_page", 0, 10);
-                }
-                do {
-                    const queryParams = new URLSearchParams();
-                    queryParams.append("page", String(currentPage));
-                    queryParams.append("per_page", String(perPage));
-                    const response = await makeRequest.call(this, "GET", `/posts?${queryParams.toString()}`);
-                    const items = response.data || response.items || (Array.isArray(response) ? response : []);
-                    allItems = allItems.concat(items);
-                    if (returnAll) {
-                        total = response.total || items.length;
-                        perPage = response.per_page || perPage;
-                        currentPage++;
+                // PROFILE RESOURCE
+                else if (resource === "profile") {
+                    if (operation === "get") {
+                        const profileIdRaw = this.getNodeParameter("profileId", i);
+                        const profileId = extractResourceLocatorValue(profileIdRaw);
+                        if (!profileId) {
+                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Profile ID is required", { description: "Please provide a valid Profile ID." });
+                        }
+                        responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
+                        const simplify = this.getNodeParameter("simplify", i, true);
+                        if (simplify && responseData) {
+                            responseData = simplifyProfile(responseData);
+                        }
                     }
-                    else {
-                        break;
+                    else if (operation === "getMany") {
+                        const returnAll = this.getNodeParameter("returnAll", i, false);
+                        const simplify = this.getNodeParameter("simplify", i, true);
+                        let allItems = [];
+                        let currentPage = 0;
+                        let total = 0;
+                        let perPage = 10;
+                        if (!returnAll) {
+                            currentPage = this.getNodeParameter("page", i, 0);
+                            perPage = this.getNodeParameter("per_page", i, 10);
+                        }
+                        do {
+                            const queryParams = new URLSearchParams();
+                            queryParams.append("page", String(currentPage));
+                            queryParams.append("per_page", String(perPage));
+                            const response = await makeRequest.call(this, "GET", `/profiles?${queryParams.toString()}`);
+                            const items = response.data || response.items || (Array.isArray(response) ? response : []);
+                            allItems = allItems.concat(items);
+                            if (returnAll) {
+                                total = response.total || items.length;
+                                perPage = response.per_page || perPage;
+                                currentPage++;
+                            }
+                            else {
+                                break;
+                            }
+                        } while (returnAll && allItems.length < total);
+                        if (!returnAll) {
+                            const limit = this.getNodeParameter("limit", i, 50);
+                            allItems = allItems.slice(0, limit);
+                        }
+                        if (simplify) {
+                            allItems = allItems.map((profile) => simplifyProfile(profile));
+                        }
+                        responseData = {
+                            total: returnAll ? total : allItems.length,
+                            page: returnAll ? 0 : currentPage,
+                            per_page: perPage,
+                            data: allItems,
+                        };
                     }
-                } while (returnAll && allItems.length < total);
-                if (!returnAll) {
-                    const limit = this.getNodeParameter("limit", 0, 50);
-                    allItems = allItems.slice(0, limit);
                 }
-                if (simplify) {
-                    allItems = allItems.map((post) => simplifyPost(post));
-                }
-                responseData = {
-                    total: returnAll ? total : allItems.length,
-                    page: returnAll ? 0 : currentPage,
-                    per_page: perPage,
-                    data: allItems,
-                };
-            }
-            else if (operation === "update") {
-                const postIdRaw = this.getNodeParameter("postId", 0);
-                const postId = extractResourceLocatorValue(postIdRaw);
-                const updateFields = this.getNodeParameter("updateFields", 0, {});
-                if (!postId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
-                }
-                // Build update body
-                const body = {
-                    post: {},
-                };
-                if (updateFields.content !== undefined && updateFields.content !== "") {
-                    body.post.body = updateFields.content;
-                }
-                if (updateFields.scheduled_at !== undefined && updateFields.scheduled_at !== "") {
-                    body.post.scheduled_at = updateFields.scheduled_at;
-                }
-                // Ensure at least one field is being updated
-                if (Object.keys(body.post).length === 0) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "At least one field must be provided to update", { description: "Please provide at least one field (Content or Scheduled At) to update the post." });
-                }
-                responseData = await makeRequest.call(this, "PATCH", `/posts/${postId}`, body);
-            }
-            else if (operation === "publish") {
-                const postIdRaw = this.getNodeParameter("postId", 0);
-                const postId = extractResourceLocatorValue(postIdRaw);
-                if (!postId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Post ID is required", { description: "Please provide a valid Post ID." });
-                }
-                responseData = await makeRequest.call(this, "POST", `/posts/${postId}/publish`);
-                const simplify = this.getNodeParameter("simplify", 0, true);
-                if (simplify && responseData) {
-                    responseData = simplifyPost(responseData);
-                }
-            }
-        }
-        // PROFILE RESOURCE
-        else if (resource === "profile") {
-            if (operation === "get") {
-                const profileIdRaw = this.getNodeParameter("profileId", 0);
-                const profileId = extractResourceLocatorValue(profileIdRaw);
-                if (!profileId) {
-                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), "Profile ID is required", { description: "Please provide a valid Profile ID." });
-                }
-                responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
-                const simplify = this.getNodeParameter("simplify", 0, true);
-                if (simplify && responseData) {
-                    responseData = simplifyProfile(responseData);
-                }
-            }
-            else if (operation === "getMany") {
-                const returnAll = this.getNodeParameter("returnAll", 0, false);
-                const simplify = this.getNodeParameter("simplify", 0, true);
-                let allItems = [];
-                let currentPage = 0;
-                let total = 0;
-                let perPage = 10;
-                if (!returnAll) {
-                    currentPage = this.getNodeParameter("page", 0, 0);
-                    perPage = this.getNodeParameter("per_page", 0, 10);
-                }
-                do {
-                    const queryParams = new URLSearchParams();
-                    queryParams.append("page", String(currentPage));
-                    queryParams.append("per_page", String(perPage));
-                    const response = await makeRequest.call(this, "GET", `/profiles?${queryParams.toString()}`);
-                    const items = response.data || response.items || (Array.isArray(response) ? response : []);
-                    allItems = allItems.concat(items);
-                    if (returnAll) {
-                        total = response.total || items.length;
-                        perPage = response.per_page || perPage;
-                        currentPage++;
+                // PROFILE GROUP RESOURCE
+                else if (resource === "profileGroup") {
+                    if (operation === "getMany") {
+                        const returnAll = this.getNodeParameter("returnAll", i, false);
+                        let allItems = [];
+                        let currentPage = 0;
+                        let total = 0;
+                        let perPage = 10;
+                        if (!returnAll) {
+                            currentPage = this.getNodeParameter("page", i, 0);
+                            perPage = this.getNodeParameter("per_page", i, 10);
+                        }
+                        do {
+                            const queryParams = new URLSearchParams();
+                            queryParams.append("page", String(currentPage));
+                            queryParams.append("per_page", String(perPage));
+                            const response = await makeRequest.call(this, "GET", `/profile_groups/?${queryParams.toString()}`);
+                            const items = response.data || response.items || (Array.isArray(response) ? response : []);
+                            allItems = allItems.concat(items);
+                            if (returnAll) {
+                                total = response.total || items.length;
+                                perPage = response.per_page || perPage;
+                                currentPage++;
+                            }
+                            else {
+                                break;
+                            }
+                        } while (returnAll && allItems.length < total);
+                        if (!returnAll) {
+                            const limit = this.getNodeParameter("limit", i, 50);
+                            allItems = allItems.slice(0, limit);
+                        }
+                        responseData = {
+                            total: returnAll ? total : allItems.length,
+                            page: returnAll ? 0 : currentPage,
+                            per_page: perPage,
+                            data: allItems,
+                        };
                     }
-                    else {
-                        break;
-                    }
-                } while (returnAll && allItems.length < total);
-                if (!returnAll) {
-                    const limit = this.getNodeParameter("limit", 0, 50);
-                    allItems = allItems.slice(0, limit);
                 }
-                if (simplify) {
-                    allItems = allItems.map((profile) => simplifyProfile(profile));
+                if (responseData === undefined) {
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), `The operation "${operation}" for resource "${resource}" is not supported`, { description: "This combination of resource and operation is not available." });
                 }
-                responseData = {
-                    total: returnAll ? total : allItems.length,
-                    page: returnAll ? 0 : currentPage,
-                    per_page: perPage,
-                    data: allItems,
-                };
-            }
-        }
-        // PROFILE GROUP RESOURCE
-        else if (resource === "profileGroup") {
-            if (operation === "getMany") {
-                const returnAll = this.getNodeParameter("returnAll", 0, false);
-                let allItems = [];
-                let currentPage = 0;
-                let total = 0;
-                let perPage = 10;
-                if (!returnAll) {
-                    currentPage = this.getNodeParameter("page", 0, 0);
-                    perPage = this.getNodeParameter("per_page", 0, 10);
-                }
-                do {
-                    const queryParams = new URLSearchParams();
-                    queryParams.append("page", String(currentPage));
-                    queryParams.append("per_page", String(perPage));
-                    const response = await makeRequest.call(this, "GET", `/profile_groups/?${queryParams.toString()}`);
-                    const items = response.data || response.items || (Array.isArray(response) ? response : []);
-                    allItems = allItems.concat(items);
-                    if (returnAll) {
-                        total = response.total || items.length;
-                        perPage = response.per_page || perPage;
-                        currentPage++;
-                    }
-                    else {
-                        break;
-                    }
-                } while (returnAll && allItems.length < total);
-                if (!returnAll) {
-                    const limit = this.getNodeParameter("limit", 0, 50);
-                    allItems = allItems.slice(0, limit);
-                }
-                responseData = {
-                    total: returnAll ? total : allItems.length,
-                    page: returnAll ? 0 : currentPage,
-                    per_page: perPage,
-                    data: allItems,
-                };
-            }
-        }
-        if (responseData === undefined) {
-            throw new n8n_workflow_1.NodeOperationError(this.getNode(), `The operation "${operation}" for resource "${resource}" is not supported`, { description: "This combination of resource and operation is not available." });
-        }
-        return [
-            [
-                {
+                // Add pairedItem to the response
+                returnData.push({
                     json: responseData,
-                },
-            ],
-        ];
+                    pairedItem: { item: i },
+                });
+            }
+            catch (error) {
+                // Handle errors with continue on fail support
+                if (this.continueOnFail()) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    const errorDescription = error instanceof n8n_workflow_1.NodeApiError || error instanceof n8n_workflow_1.NodeOperationError
+                        ? error.description || errorMessage
+                        : errorMessage;
+                    returnData.push({
+                        json: {
+                            error: errorMessage,
+                            description: errorDescription,
+                        },
+                        pairedItem: { item: i },
+                    });
+                    continue;
+                }
+                throw error;
+            }
+        }
+        return [returnData];
     }
 }
 exports.PostProxy = PostProxy;
