@@ -15,7 +15,7 @@ import {
 
 const BASE_URL = "https://api.postproxy.dev/api";
 
-interface PostProxyError {
+interface PostproxyError {
   message?: string;
   error?: string;
   request_id?: string;
@@ -160,7 +160,7 @@ async function makeRequest(
     // Log request_id if present in response headers
     const requestId = (response.headers || {})["x-request-id"];
     if (requestId) {
-      this.logger?.info(`PostProxy request_id: ${requestId}`);
+      this.logger?.info(`Postproxy request_id: ${requestId}`);
     }
 
     return response;
@@ -168,20 +168,20 @@ async function makeRequest(
     const statusCode = error.statusCode || error.response?.status;
     const requestId = error.response?.headers?.["x-request-id"];
 
-    let errorMessage = "PostProxy API request failed";
+    let errorMessage = "Postproxy API request failed";
     let description = "";
 
     if (requestId) {
-      this.logger?.error(`PostProxy request_id: ${requestId}`);
+      this.logger?.error(`Postproxy request_id: ${requestId}`);
       description += `Request ID: ${requestId}\n`;
     }
 
     if (statusCode) {
-      const errorBody: PostProxyError = error.response?.body || {};
+      const errorBody: PostproxyError = error.response?.body || {};
       const apiMessage = errorBody.message || errorBody.error || error.message;
 
       if (statusCode >= 400 && statusCode < 500) {
-        errorMessage = `PostProxy API error (${statusCode})`;
+        errorMessage = `Postproxy API error (${statusCode})`;
         description += apiMessage || "Client error";
         
         if (statusCode === 401) {
@@ -192,16 +192,16 @@ async function makeRequest(
           description += "\n\nRate limit exceeded. Please try again later.";
         }
       } else if (statusCode >= 500) {
-        errorMessage = `PostProxy API server error (${statusCode})`;
+        errorMessage = `Postproxy API server error (${statusCode})`;
         description += apiMessage || "Internal server error";
-        description += "\n\nPlease try again later or contact PostProxy support.";
+        description += "\n\nPlease try again later or contact Postproxy support.";
       }
     } else if (error.code === "ETIMEDOUT" || error.code === "ECONNABORTED") {
-      errorMessage = "PostProxy API request timed out";
+      errorMessage = "Postproxy API request timed out";
       description = "The request took too long to complete. Please try again.";
     } else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-      errorMessage = "PostProxy API connection failed";
-      description = "Could not connect to PostProxy API. Please check your network connection.";
+      errorMessage = "Postproxy API connection failed";
+      description = "Could not connect to Postproxy API. Please check your network connection.";
     }
 
     throw new NodeApiError(this.getNode(), error, {

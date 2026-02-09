@@ -114,24 +114,24 @@ async function makeRequest(method, endpoint, body) {
         // Log request_id if present in response headers
         const requestId = (response.headers || {})["x-request-id"];
         if (requestId) {
-            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.info(`PostProxy request_id: ${requestId}`);
+            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.info(`Postproxy request_id: ${requestId}`);
         }
         return response;
     }
     catch (error) {
         const statusCode = error.statusCode || ((_b = error.response) === null || _b === void 0 ? void 0 : _b.status);
         const requestId = (_d = (_c = error.response) === null || _c === void 0 ? void 0 : _c.headers) === null || _d === void 0 ? void 0 : _d["x-request-id"];
-        let errorMessage = "PostProxy API request failed";
+        let errorMessage = "Postproxy API request failed";
         let description = "";
         if (requestId) {
-            (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error(`PostProxy request_id: ${requestId}`);
+            (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error(`Postproxy request_id: ${requestId}`);
             description += `Request ID: ${requestId}\n`;
         }
         if (statusCode) {
             const errorBody = ((_f = error.response) === null || _f === void 0 ? void 0 : _f.body) || {};
             const apiMessage = errorBody.message || errorBody.error || error.message;
             if (statusCode >= 400 && statusCode < 500) {
-                errorMessage = `PostProxy API error (${statusCode})`;
+                errorMessage = `Postproxy API error (${statusCode})`;
                 description += apiMessage || "Client error";
                 if (statusCode === 401) {
                     description += "\n\nPlease check your API credentials.";
@@ -144,18 +144,18 @@ async function makeRequest(method, endpoint, body) {
                 }
             }
             else if (statusCode >= 500) {
-                errorMessage = `PostProxy API server error (${statusCode})`;
+                errorMessage = `Postproxy API server error (${statusCode})`;
                 description += apiMessage || "Internal server error";
-                description += "\n\nPlease try again later or contact PostProxy support.";
+                description += "\n\nPlease try again later or contact Postproxy support.";
             }
         }
         else if (error.code === "ETIMEDOUT" || error.code === "ECONNABORTED") {
-            errorMessage = "PostProxy API request timed out";
+            errorMessage = "Postproxy API request timed out";
             description = "The request took too long to complete. Please try again.";
         }
         else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
-            errorMessage = "PostProxy API connection failed";
-            description = "Could not connect to PostProxy API. Please check your network connection.";
+            errorMessage = "Postproxy API connection failed";
+            description = "Could not connect to Postproxy API. Please check your network connection.";
         }
         throw new n8n_workflow_1.NodeApiError(this.getNode(), error, {
             message: errorMessage,
