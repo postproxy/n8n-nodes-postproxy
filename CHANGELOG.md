@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-02-09
+
+### Fixed
+- Fixed naming convention: restored PostProxy (PascalCase) naming to comply with n8n verification requirements
+- Corrected paths in package.json, exports in index.ts, and directory structure
+
 ## [0.2.0] - 2026-02-06
 
 ### Added
@@ -61,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.13...v0.2.0
 [0.1.13]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.1.10...v0.1.12
