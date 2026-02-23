@@ -13,10 +13,6 @@ yarn-error.log*
 # OS
 .DS_Store
 
-# Yandex.Disk sync conflicts
-*_DownloadCaseConflict*
-*_DownloadCaseConflict/
-
 # n8n local data
 .n8n/
 
