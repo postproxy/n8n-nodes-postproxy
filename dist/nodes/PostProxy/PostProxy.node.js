@@ -1122,7 +1122,7 @@ class PostProxy {
                     var _a, _b, _c;
                     const credentials = credential.data;
                     try {
-                        const response = await this.helpers.request({
+                        const options = {
                             method: "GET",
                             url: `${BASE_URL}/profile_groups/`,
                             headers: {
@@ -1131,8 +1131,11 @@ class PostProxy {
                             },
                             json: true,
                             timeout: 30000,
-                        });
-                        // If we get here, the request was successful
+                        };
+                        // ICredentialTestFunctions.helpers typing does not expose httpRequest,
+                        // but it is available at runtime (deprecated `request` is its predecessor).
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        await this.helpers.httpRequest(options);
                         return {
                             status: "OK",
                             message: "Connection successful",

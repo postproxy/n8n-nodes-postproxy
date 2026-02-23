@@ -5,6 +5,7 @@ import {
   INodeType,
   INodeTypeDescription,
   IHttpRequestMethods,
+  IHttpRequestOptions,
   INodeListSearchResult,
   INodeListSearchItems,
   NodeApiError,
@@ -1211,7 +1212,7 @@ export class PostProxy implements INodeType {
         const credentials = credential.data as { apiKey: string };
         
         try {
-          const response = await this.helpers.request({
+          const options: IHttpRequestOptions = {
             method: "GET",
             url: `${BASE_URL}/profile_groups/`,
             headers: {
@@ -1220,9 +1221,12 @@ export class PostProxy implements INodeType {
             },
             json: true,
             timeout: 30000,
-          });
+          };
+          // ICredentialTestFunctions.helpers typing does not expose httpRequest,
+          // but it is available at runtime (deprecated `request` is its predecessor).
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (this.helpers as any).httpRequest(options);
 
-          // If we get here, the request was successful
           return {
             status: "OK",
             message: "Connection successful",
