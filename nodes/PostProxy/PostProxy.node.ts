@@ -5,13 +5,10 @@ import {
   INodeType,
   INodeTypeDescription,
   IHttpRequestMethods,
-  IHttpRequestOptions,
   INodeListSearchResult,
   INodeListSearchItems,
   NodeApiError,
   NodeOperationError,
-  ICredentialTestFunctions,
-  ICredentialsDecrypted,
 } from "n8n-workflow";
 
 const BASE_URL = "https://api.postproxy.dev/api";
@@ -143,26 +140,21 @@ async function makeRequest(
   endpoint: string,
   body?: any,
 ): Promise<any> {
-  const credentials = await this.getCredentials("postProxyApi");
-
   try {
-    const response = await this.helpers.httpRequest({
-      method,
-      url: `${BASE_URL}${endpoint}`,
-      headers: {
-        Authorization: `Bearer ${credentials.apiKey}`,
-        "Content-Type": "application/json",
+    const response = await this.helpers.httpRequestWithAuthentication.call(
+      this,
+      "postProxyApi",
+      {
+        method,
+        url: `${BASE_URL}${endpoint}`,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body,
+        json: true,
+        timeout: 30000,
       },
-      body,
-      json: true,
-      timeout: 30000,
-    });
-
-    // Log request_id if present in response headers
-    const requestId = (response.headers || {})["x-request-id"];
-    if (requestId) {
-      this.logger?.info(`Postproxy request_id: ${requestId}`);
-    }
+    );
 
     return response;
   } catch (error: any) {
@@ -173,7 +165,6 @@ async function makeRequest(
     let description = "";
 
     if (requestId) {
-      this.logger?.error(`Postproxy request_id: ${requestId}`);
       description += `Request ID: ${requestId}\n`;
     }
 
@@ -231,7 +222,6 @@ export class PostProxy implements INodeType {
       {
         name: "postProxyApi",
         required: true,
-        testedBy: "testPostProxyConnection",
       },
     ],
     properties: [
@@ -1201,41 +1191,6 @@ export class PostProxy implements INodeType {
             message: "Failed to load profiles",
             description: error.message,
           });
-        }
-      },
-    },
-    credentialTest: {
-      async testPostProxyConnection(
-        this: ICredentialTestFunctions,
-        credential: ICredentialsDecrypted,
-      ): Promise<any> {
-        const credentials = credential.data as { apiKey: string };
-        
-        try {
-          const options: IHttpRequestOptions = {
-            method: "GET",
-            url: `${BASE_URL}/profile_groups/`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
-            },
-            json: true,
-            timeout: 30000,
-          };
-          // ICredentialTestFunctions.helpers typing does not expose httpRequest,
-          // but it is available at runtime (deprecated `request` is its predecessor).
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (this.helpers as any).httpRequest(options);
-
-          return {
-            status: "OK",
-            message: "Connection successful",
-          };
-        } catch (error: any) {
-          const statusCode = error.statusCode || error.response?.status;
-          const errorMessage = error.response?.body?.message || error.message || "Unknown error";
-          
-          throw new Error(`Authorization failed: HTTP ${statusCode}: ${errorMessage}. Please check your API key.`);
         }
       },
     },
