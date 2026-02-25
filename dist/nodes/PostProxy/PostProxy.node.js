@@ -97,38 +97,30 @@ function extractResourceLocatorValue(value) {
     return "";
 }
 async function makeRequest(method, endpoint, body) {
-    var _a, _b, _c, _d, _e, _f;
-    const credentials = await this.getCredentials("postProxyApi");
+    var _a, _b, _c, _d;
     try {
-        const response = await this.helpers.httpRequest({
+        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
             method,
             url: `${BASE_URL}${endpoint}`,
             headers: {
-                Authorization: `Bearer ${credentials.apiKey}`,
                 "Content-Type": "application/json",
             },
             body,
             json: true,
             timeout: 30000,
         });
-        // Log request_id if present in response headers
-        const requestId = (response.headers || {})["x-request-id"];
-        if (requestId) {
-            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.info(`Postproxy request_id: ${requestId}`);
-        }
         return response;
     }
     catch (error) {
-        const statusCode = error.statusCode || ((_b = error.response) === null || _b === void 0 ? void 0 : _b.status);
-        const requestId = (_d = (_c = error.response) === null || _c === void 0 ? void 0 : _c.headers) === null || _d === void 0 ? void 0 : _d["x-request-id"];
+        const statusCode = error.statusCode || ((_a = error.response) === null || _a === void 0 ? void 0 : _a.status);
+        const requestId = (_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.headers) === null || _c === void 0 ? void 0 : _c["x-request-id"];
         let errorMessage = "Postproxy API request failed";
         let description = "";
         if (requestId) {
-            (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error(`Postproxy request_id: ${requestId}`);
             description += `Request ID: ${requestId}\n`;
         }
         if (statusCode) {
-            const errorBody = ((_f = error.response) === null || _f === void 0 ? void 0 : _f.body) || {};
+            const errorBody = ((_d = error.response) === null || _d === void 0 ? void 0 : _d.body) || {};
             const apiMessage = errorBody.message || errorBody.error || error.message;
             if (statusCode >= 400 && statusCode < 500) {
                 errorMessage = `Postproxy API error (${statusCode})`;
@@ -182,7 +174,6 @@ class PostProxy {
                 {
                     name: "postProxyApi",
                     required: true,
-                    testedBy: "testPostProxyConnection",
                 },
             ],
             properties: [
@@ -1114,37 +1105,6 @@ class PostProxy {
                             message: "Failed to load profiles",
                             description: error.message,
                         });
-                    }
-                },
-            },
-            credentialTest: {
-                async testPostProxyConnection(credential) {
-                    var _a, _b, _c;
-                    const credentials = credential.data;
-                    try {
-                        const options = {
-                            method: "GET",
-                            url: `${BASE_URL}/profile_groups/`,
-                            headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
-                                "Content-Type": "application/json",
-                            },
-                            json: true,
-                            timeout: 30000,
-                        };
-                        // ICredentialTestFunctions.helpers typing does not expose httpRequest,
-                        // but it is available at runtime (deprecated `request` is its predecessor).
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        await this.helpers.httpRequest(options);
-                        return {
-                            status: "OK",
-                            message: "Connection successful",
-                        };
-                    }
-                    catch (error) {
-                        const statusCode = error.statusCode || ((_a = error.response) === null || _a === void 0 ? void 0 : _a.status);
-                        const errorMessage = ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.body) === null || _c === void 0 ? void 0 : _c.message) || error.message || "Unknown error";
-                        throw new Error(`Authorization failed: HTTP ${statusCode}: ${errorMessage}. Please check your API key.`);
                     }
                 },
             },
