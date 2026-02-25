@@ -868,7 +868,6 @@ class PostProxy {
             listSearch: {
                 async searchPosts(filter) {
                     var _a;
-                    const credentials = await this.getCredentials("postProxyApi");
                     try {
                         // Check if current operation is "publish" to filter only draft posts
                         let operation;
@@ -892,11 +891,10 @@ class PostProxy {
                         const url = queryParams.toString()
                             ? `${BASE_URL}/posts?${queryParams.toString()}`
                             : `${BASE_URL}/posts`;
-                        const response = await this.helpers.httpRequest({
+                        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
                             method: "GET",
                             url: url,
                             headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
                                 "Content-Type": "application/json",
                             },
                             json: true,
@@ -939,13 +937,11 @@ class PostProxy {
                     }
                 },
                 async searchProfiles(filter) {
-                    const credentials = await this.getCredentials("postProxyApi");
                     try {
-                        const response = await this.helpers.httpRequest({
+                        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
                             method: "GET",
                             url: `${BASE_URL}/profiles`,
                             headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
                                 "Content-Type": "application/json",
                             },
                             json: true,
@@ -976,13 +972,11 @@ class PostProxy {
                     }
                 },
                 async searchProfileGroups(filter) {
-                    const credentials = await this.getCredentials("postProxyApi");
                     try {
-                        const response = await this.helpers.httpRequest({
+                        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
                             method: "GET",
                             url: `${BASE_URL}/profile_groups/`,
                             headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
                                 "Content-Type": "application/json",
                             },
                             json: true,
@@ -1011,13 +1005,11 @@ class PostProxy {
             },
             loadOptions: {
                 async getProfileGroups() {
-                    const credentials = await this.getCredentials("postProxyApi");
                     try {
-                        const response = await this.helpers.httpRequest({
+                        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
                             method: "GET",
                             url: `${BASE_URL}/profile_groups/`,
                             headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
                                 "Content-Type": "application/json",
                             },
                             json: true,
@@ -1039,7 +1031,6 @@ class PostProxy {
                 async getProfilesForGroup() {
                     var _a;
                     try {
-                        const credentials = await this.getCredentials("postProxyApi");
                         // Try to get profileGroupId from node parameters
                         let profileGroupId;
                         try {
@@ -1063,11 +1054,10 @@ class PostProxy {
                         // Load ALL profiles from API
                         // Note: loadOptionsDependOn doesn't reliably pass profileGroup value,
                         // so we load all profiles and filter client-side
-                        const response = await this.helpers.httpRequest({
+                        const response = await this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
                             method: "GET",
                             url: `${BASE_URL}/profiles`,
                             headers: {
-                                Authorization: `Bearer ${credentials.apiKey}`,
                                 "Content-Type": "application/json",
                             },
                             json: true,
