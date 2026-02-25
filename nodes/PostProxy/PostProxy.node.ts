@@ -921,7 +921,6 @@ export class PostProxy implements INodeType {
         this: ILoadOptionsFunctions,
         filter?: string,
       ): Promise<INodeListSearchResult> {
-        const credentials = await this.getCredentials("postProxyApi");
         try {
           // Check if current operation is "publish" to filter only draft posts
           let operation: string | undefined;
@@ -946,16 +945,19 @@ export class PostProxy implements INodeType {
             ? `${BASE_URL}/posts?${queryParams.toString()}`
             : `${BASE_URL}/posts`;
 
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: url,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: url,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              json: true,
+              timeout: 30000,
             },
-            json: true,
-            timeout: 30000,
-          });
+          );
 
           let posts = response.data || response.items || (Array.isArray(response) ? response : []);
           
@@ -1002,18 +1004,20 @@ export class PostProxy implements INodeType {
         this: ILoadOptionsFunctions,
         filter?: string,
       ): Promise<INodeListSearchResult> {
-        const credentials = await this.getCredentials("postProxyApi");
         try {
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: `${BASE_URL}/profiles`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/profiles`,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              json: true,
+              timeout: 30000,
             },
-            json: true,
-            timeout: 30000,
-          });
+          );
 
           const profiles = response.data || response.items || (Array.isArray(response) ? response : []);
           
@@ -1048,18 +1052,20 @@ export class PostProxy implements INodeType {
         this: ILoadOptionsFunctions,
         filter?: string,
       ): Promise<INodeListSearchResult> {
-        const credentials = await this.getCredentials("postProxyApi");
         try {
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: `${BASE_URL}/profile_groups/`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/profile_groups/`,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              json: true,
+              timeout: 30000,
             },
-            json: true,
-            timeout: 30000,
-          });
+          );
 
           const groups = response.data || [];
           
@@ -1090,19 +1096,20 @@ export class PostProxy implements INodeType {
       async getProfileGroups(
         this: ILoadOptionsFunctions,
       ): Promise<Array<{ name: string; value: string }>> {
-        const credentials = await this.getCredentials("postProxyApi");
-
         try {
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: `${BASE_URL}/profile_groups/`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/profile_groups/`,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              json: true,
+              timeout: 30000,
             },
-            json: true,
-            timeout: 30000,
-          });
+          );
 
           const groups = response.data || [];
 
@@ -1121,8 +1128,6 @@ export class PostProxy implements INodeType {
         this: ILoadOptionsFunctions,
       ): Promise<Array<{ name: string; value: string }>> {
         try {
-          const credentials = await this.getCredentials("postProxyApi");
-          
           // Try to get profileGroupId from node parameters
           let profileGroupId: string | undefined;
           
@@ -1145,16 +1150,19 @@ export class PostProxy implements INodeType {
           // Load ALL profiles from API
           // Note: loadOptionsDependOn doesn't reliably pass profileGroup value,
           // so we load all profiles and filter client-side
-          const response = await this.helpers.httpRequest({
-            method: "GET",
-            url: `${BASE_URL}/profiles`,
-            headers: {
-              Authorization: `Bearer ${credentials.apiKey}`,
-              "Content-Type": "application/json",
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/profiles`,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              json: true,
+              timeout: 30000,
             },
-            json: true,
-            timeout: 30000,
-          });
+          );
 
           // Extract profiles from response
           let profiles = response.data || response.items || (Array.isArray(response) ? response : []);
