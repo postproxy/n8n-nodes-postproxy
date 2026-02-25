@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Switched to httpRequestWithAuthentication to use credential authenticate method
+- Moved credential test from node to credential file
+- Removed logger calls (n8n Cloud compatibility)
+
 ## [0.2.4] - 2026-02-23
 
 ### Fixed
