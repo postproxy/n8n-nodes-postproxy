@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed path case sensitivity for Linux containers: added dist/ to .gitignore, prepublishOnly script for fresh build before publish, removed dist from repository (aligns with n8n-nodes-starter recommendations)
+
 ## [0.2.6] - 2026-02-25
 
 ### Changed

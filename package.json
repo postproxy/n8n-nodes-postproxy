@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-postproxy",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "n8n community node for PostProxy API - unified API for publishing and scheduling posts across multiple social media platforms",
   "license": "MIT",
   "main": "dist/index.js",
@@ -36,6 +36,7 @@
   "scripts": {
     "build": "tsc && copyfiles nodes/**/*.svg dist",
     "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "dev": "npm run build && npm run watch",
     "watch": "tsc --watch",
     "lint": "eslint src --ext .ts",
