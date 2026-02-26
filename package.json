@@ -27,7 +27,7 @@
   "bugs": {
     "url": "https://github.com/postproxy/n8n-nodes-postproxy/issues"
   },
-  "homepage": "https://www.postproxy.dev/",
+  "homepage": "https://postproxy.dev/",
   "files": [
     "dist",
     "README.md",
