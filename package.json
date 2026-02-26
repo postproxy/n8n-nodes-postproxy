@@ -36,6 +36,7 @@
   "scripts": {
     "build": "tsc && copyfiles nodes/**/*.svg dist",
     "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "dev": "npm run build && npm run watch",
     "watch": "tsc --watch",
     "lint": "eslint src --ext .ts",

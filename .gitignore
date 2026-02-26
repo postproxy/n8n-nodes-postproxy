@@ -1,5 +1,6 @@
 # dependencies / build
 node_modules/
+dist/
 
 # logs
 npm-debug.log*
@@ -18,3 +19,4 @@ yarn-error.log*
 
 # Cursor IDE
 .cursor/
+git
