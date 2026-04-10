@@ -232,6 +232,10 @@ export class PostProxy implements INodeType {
         noDataExpression: true,
         options: [
           {
+            name: "Comment",
+            value: "comment",
+          },
+          {
             name: "Post",
             value: "post",
           },
@@ -243,10 +247,628 @@ export class PostProxy implements INodeType {
             name: "Profile Group",
             value: "profileGroup",
           },
+          {
+            name: "Queue",
+            value: "queue",
+          },
+          {
+            name: "Webhook",
+            value: "webhook",
+          },
         ],
         default: "post",
         description: "The resource to operate on",
       },
+      // Queue resource operations
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+          },
+        },
+        options: [
+          {
+            name: "Create",
+            value: "create",
+            description: "Create a new posting queue",
+            action: "Create a queue",
+          },
+          {
+            name: "Delete",
+            value: "delete",
+            description: "Delete a posting queue",
+            action: "Delete a queue",
+          },
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a queue by ID",
+            action: "Get a queue",
+          },
+          {
+            name: "Get Next Slot",
+            value: "nextSlot",
+            description: "Get the next available timeslot for a queue",
+            action: "Get next queue slot",
+          },
+          {
+            name: "List",
+            value: "list",
+            description: "List all posting queues",
+            action: "List queues",
+          },
+          {
+            name: "Update",
+            value: "update",
+            description: "Update a queue",
+            action: "Update a queue",
+          },
+        ],
+        default: "list",
+        description: "The operation to perform",
+      },
+      // Queue ID parameter (used by get, update, delete, nextSlot)
+      {
+        displayName: "Queue ID",
+        name: "queueId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+            operation: ["get", "update", "delete", "nextSlot"],
+          },
+        },
+        description: "The queue ID",
+        placeholder: "e.g. q1abc",
+      },
+      // Queue create parameters
+      {
+        displayName: "Profile Group ID",
+        name: "queueProfileGroupId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+            operation: ["create"],
+          },
+        },
+        description: "Profile group ID to connect the queue to",
+        placeholder: "e.g. pg123",
+      },
+      {
+        displayName: "Name",
+        name: "queueName",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+            operation: ["create"],
+          },
+        },
+        description: "Queue name",
+      },
+      {
+        displayName: "Additional Fields",
+        name: "queueCreateFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+            operation: ["create"],
+          },
+        },
+        options: [
+          {
+            displayName: "Description",
+            name: "description",
+            type: "string",
+            default: "",
+            description: "Optional description",
+          },
+          {
+            displayName: "Timezone",
+            name: "timezone",
+            type: "string",
+            default: "UTC",
+            description: "IANA timezone name (e.g. America/New_York)",
+            placeholder: "America/New_York",
+          },
+          {
+            displayName: "Jitter (Minutes)",
+            name: "jitter",
+            type: "number",
+            default: 0,
+            typeOptions: { minValue: 0, maxValue: 60 },
+            description: "Random offset in minutes (+/-) applied to scheduled times for natural posting patterns",
+          },
+          {
+            displayName: "Timeslots (JSON)",
+            name: "timeslots",
+            type: "json",
+            default: "[]",
+            description: "Initial weekly timeslots as JSON array. Each item: {\"day\": 1, \"time\": \"09:00\"} where day is 0=Sunday through 6=Saturday",
+          },
+        ],
+      },
+      // Queue update parameters
+      {
+        displayName: "Update Fields",
+        name: "queueUpdateFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["queue"],
+            operation: ["update"],
+          },
+        },
+        options: [
+          {
+            displayName: "Name",
+            name: "name",
+            type: "string",
+            default: "",
+            description: "New queue name",
+          },
+          {
+            displayName: "Description",
+            name: "description",
+            type: "string",
+            default: "",
+            description: "New description",
+          },
+          {
+            displayName: "Timezone",
+            name: "timezone",
+            type: "string",
+            default: "",
+            description: "IANA timezone name",
+            placeholder: "America/Los_Angeles",
+          },
+          {
+            displayName: "Enabled",
+            name: "enabled",
+            type: "boolean",
+            default: true,
+            description: "Set to false to pause the queue, true to unpause",
+          },
+          {
+            displayName: "Jitter (Minutes)",
+            name: "jitter",
+            type: "number",
+            default: 0,
+            typeOptions: { minValue: 0, maxValue: 60 },
+            description: "Random offset in minutes (0-60)",
+          },
+          {
+            displayName: "Timeslots (JSON)",
+            name: "timeslots",
+            type: "json",
+            default: "[]",
+            description: "Timeslots to add or remove. To add: {\"day\": 1, \"time\": \"09:00\"}. To remove: {\"id\": 42, \"_destroy\": true}",
+          },
+        ],
+      },
+      // Webhook resource operations
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+          },
+        },
+        options: [
+          {
+            name: "Create",
+            value: "create",
+            description: "Create a new webhook",
+            action: "Create a webhook",
+          },
+          {
+            name: "Delete",
+            value: "delete",
+            description: "Delete a webhook",
+            action: "Delete a webhook",
+          },
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a webhook by ID",
+            action: "Get a webhook",
+          },
+          {
+            name: "List",
+            value: "list",
+            description: "List all webhooks",
+            action: "List webhooks",
+          },
+          {
+            name: "List Deliveries",
+            value: "listDeliveries",
+            description: "List delivery attempts for a webhook",
+            action: "List webhook deliveries",
+          },
+          {
+            name: "Update",
+            value: "update",
+            description: "Update a webhook",
+            action: "Update a webhook",
+          },
+        ],
+        default: "list",
+        description: "The operation to perform",
+      },
+      // Webhook ID parameter (used by get, update, delete, listDeliveries)
+      {
+        displayName: "Webhook ID",
+        name: "webhookId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["get", "update", "delete", "listDeliveries"],
+          },
+        },
+        description: "The webhook ID",
+        placeholder: "e.g. wh_abc123",
+      },
+      // Webhook create parameters
+      {
+        displayName: "URL",
+        name: "webhookUrl",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["create"],
+          },
+        },
+        description: "HTTPS URL to receive webhook events",
+        placeholder: "https://example.com/webhooks",
+      },
+      {
+        displayName: "Events",
+        name: "webhookEvents",
+        type: "multiOptions",
+        required: true,
+        default: [],
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["create"],
+          },
+        },
+        options: [
+          { name: "All Events (*)", value: "*" },
+          { name: "Comment Created", value: "comment.created" },
+          { name: "Media Failed", value: "media.failed" },
+          { name: "Platform Post Failed", value: "platform_post.failed" },
+          { name: "Platform Post Failed Waiting For Retry", value: "platform_post.failed_waiting_for_retry" },
+          { name: "Platform Post Insights", value: "platform_post.insights" },
+          { name: "Platform Post Published", value: "platform_post.published" },
+          { name: "Post Processed", value: "post.processed" },
+          { name: "Profile Connected", value: "profile.connected" },
+          { name: "Profile Disconnected", value: "profile.disconnected" },
+        ],
+        description: "Event types to subscribe to",
+      },
+      {
+        displayName: "Description",
+        name: "webhookDescription",
+        type: "string",
+        required: false,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["create"],
+          },
+        },
+        description: "Optional description for the webhook",
+      },
+      // Webhook update parameters
+      {
+        displayName: "Update Fields",
+        name: "webhookUpdateFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["update"],
+          },
+        },
+        options: [
+          {
+            displayName: "URL",
+            name: "url",
+            type: "string",
+            default: "",
+            description: "New HTTPS URL",
+            placeholder: "https://example.com/webhooks",
+          },
+          {
+            displayName: "Events",
+            name: "events",
+            type: "multiOptions",
+            default: [],
+            options: [
+              { name: "All Events (*)", value: "*" },
+              { name: "Comment Created", value: "comment.created" },
+              { name: "Media Failed", value: "media.failed" },
+              { name: "Platform Post Failed", value: "platform_post.failed" },
+              { name: "Platform Post Failed Waiting For Retry", value: "platform_post.failed_waiting_for_retry" },
+              { name: "Platform Post Insights", value: "platform_post.insights" },
+              { name: "Platform Post Published", value: "platform_post.published" },
+              { name: "Post Processed", value: "post.processed" },
+              { name: "Profile Connected", value: "profile.connected" },
+              { name: "Profile Disconnected", value: "profile.disconnected" },
+            ],
+            description: "New event types to subscribe to",
+          },
+          {
+            displayName: "Enabled",
+            name: "enabled",
+            type: "boolean",
+            default: true,
+            description: "Whether to enable or disable the webhook",
+          },
+          {
+            displayName: "Description",
+            name: "description",
+            type: "string",
+            default: "",
+            description: "Updated description",
+          },
+        ],
+      },
+      // Webhook list deliveries pagination
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["listDeliveries"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      {
+        displayName: "Limit",
+        name: "limit",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["webhook"],
+            operation: ["listDeliveries"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 20,
+        description: "Max number of delivery records to return",
+      },
+      // Comment resource operations
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+          },
+        },
+        options: [
+          {
+            name: "Create",
+            value: "create",
+            description: "Post a comment on a published post",
+            action: "Create a comment",
+          },
+          {
+            name: "Delete",
+            value: "delete",
+            description: "Delete a comment from the platform",
+            action: "Delete a comment",
+          },
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a single comment with its replies",
+            action: "Get a comment",
+          },
+          {
+            name: "Hide",
+            value: "hide",
+            description: "Hide a comment on the platform",
+            action: "Hide a comment",
+          },
+          {
+            name: "Like",
+            value: "like",
+            description: "Like a comment on the platform",
+            action: "Like a comment",
+          },
+          {
+            name: "List",
+            value: "list",
+            description: "List comments on a published post",
+            action: "List comments",
+          },
+          {
+            name: "Unhide",
+            value: "unhide",
+            description: "Unhide a previously hidden comment",
+            action: "Unhide a comment",
+          },
+          {
+            name: "Unlike",
+            value: "unlike",
+            description: "Remove a like from a comment",
+            action: "Unlike a comment",
+          },
+        ],
+        default: "list",
+        description: "The operation to perform",
+      },
+      // Comment parameters - Post ID (used by all operations)
+      {
+        displayName: "Post ID",
+        name: "commentPostId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+          },
+        },
+        description: "The ID of the post to manage comments on",
+        placeholder: "e.g. abc123",
+      },
+      // Comment parameters - Profile ID (used by all operations)
+      {
+        displayName: "Profile ID",
+        name: "commentProfileId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+          },
+        },
+        description: "The profile ID to identify which platform's comments to manage",
+        placeholder: "e.g. prof_xyz",
+      },
+      // Comment parameters - Comment ID (used by get, delete, hide, unhide, like, unlike)
+      {
+        displayName: "Comment ID",
+        name: "commentId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["get", "delete", "hide", "unhide", "like", "unlike"],
+          },
+        },
+        description: "The comment ID (Postproxy ID or platform external ID)",
+        placeholder: "e.g. cmt_abc123",
+      },
+      // Comment parameters - Text (used by create)
+      {
+        displayName: "Text",
+        name: "commentText",
+        type: "string",
+        required: true,
+        default: "",
+        typeOptions: {
+          rows: 3,
+        },
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["create"],
+          },
+        },
+        description: "The comment text content",
+      },
+      // Comment parameters - Parent ID (optional, used by create for replies)
+      {
+        displayName: "Parent Comment ID",
+        name: "commentParentId",
+        type: "string",
+        required: false,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["create"],
+          },
+        },
+        description: "ID of the comment to reply to. Leave empty to comment on the post itself.",
+        placeholder: "e.g. cmt_abc123",
+      },
+      // Comment parameters - Pagination (used by list)
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["list"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      {
+        displayName: "Limit",
+        name: "limit",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["list"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 1,
+          maxValue: 100,
+        },
+        default: 20,
+        description: "Max number of comments to return",
+      },
+      {
+        displayName: "Page",
+        name: "page",
+        type: "number",
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["list"],
+            returnAll: [false],
+          },
+        },
+        typeOptions: {
+          minValue: 0,
+        },
+        default: 0,
+        description: "Page number (0-indexed) for pagination",
+      },
+      // Post resource operations
       {
         displayName: "Operation",
         name: "operation",
@@ -275,6 +897,12 @@ export class PostProxy implements INodeType {
             value: "get",
             description: "Get a post by ID",
             action: "Get post details",
+          },
+          {
+            name: "Get Stats",
+            value: "getStats",
+            description: "Get engagement stats snapshots for one or more posts",
+            action: "Get post stats",
           },
           {
             name: "List Posts",
@@ -310,10 +938,22 @@ export class PostProxy implements INodeType {
         },
         options: [
           {
+            name: "Delete",
+            value: "delete",
+            description: "Disconnect and remove a profile",
+            action: "Delete a profile",
+          },
+          {
             name: "Get Profile Details",
             value: "get",
             description: "Get a profile by ID",
             action: "Get profile details",
+          },
+          {
+            name: "List Placements",
+            value: "getPlacements",
+            description: "List available placements for a profile (Facebook pages, LinkedIn organizations, Pinterest boards)",
+            action: "List profile placements",
           },
           {
             name: "List Profiles",
@@ -337,6 +977,24 @@ export class PostProxy implements INodeType {
         },
         options: [
           {
+            name: "Create",
+            value: "create",
+            description: "Create a new profile group",
+            action: "Create a profile group",
+          },
+          {
+            name: "Delete",
+            value: "delete",
+            description: "Delete a profile group and all its profiles",
+            action: "Delete a profile group",
+          },
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a profile group by ID",
+            action: "Get a profile group",
+          },
+          {
             name: "List Profile Groups",
             value: "getMany",
             description: "Get many profile groups",
@@ -345,6 +1003,37 @@ export class PostProxy implements INodeType {
         ],
         default: "getMany",
         description: "The operation to perform",
+      },
+      // Profile Group - Get / Delete parameters
+      {
+        displayName: "Profile Group ID",
+        name: "profileGroupId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["get", "delete"],
+          },
+        },
+        description: "The profile group ID",
+        placeholder: "e.g. pg123",
+      },
+      // Profile Group - Create parameters
+      {
+        displayName: "Name",
+        name: "profileGroupName",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["profileGroup"],
+            operation: ["create"],
+          },
+        },
+        description: "Name for the new profile group",
       },
       {
         displayName: "Publish Type",
@@ -372,6 +1061,11 @@ export class PostProxy implements INodeType {
             name: "Draft",
             value: "draft",
             description: "Create a draft post that won't be published automatically",
+          },
+          {
+            name: "Queue",
+            value: "queue",
+            description: "Add the post to a queue — timeslot will be assigned automatically",
           },
         ],
         default: "publish_now",
@@ -492,7 +1186,73 @@ export class PostProxy implements INodeType {
         },
         required: false,
         default: "{}",
-        description: "Platform-specific parameters as JSON object (e.g., {\"alt_text\": \"Image description\"}). These will be passed to each platform in the 'params' field.",
+        description: "Platform-specific parameters as JSON object, keyed by platform name (e.g., {\"facebook\": {\"page_id\": \"123\"}, \"linkedin\": {\"organization_id\": \"456\"}}). Use the Profile > List Placements operation to find available page/organization IDs.",
+      },
+      {
+        displayName: "Queue",
+        name: "queueIdForPost",
+        type: "resourceLocator",
+        default: { mode: "list", value: "" },
+        required: false,
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+            publishType: ["queue"],
+          },
+        },
+        description: "Queue to add the post to. The queue will automatically assign a timeslot. Do not use together with a scheduled time.",
+        modes: [
+          {
+            displayName: "From List",
+            name: "list",
+            type: "list",
+            typeOptions: {
+              searchListMethod: "searchQueues",
+              searchable: true,
+            },
+          },
+          {
+            displayName: "By ID",
+            name: "id",
+            type: "string",
+            placeholder: "e.g. q1abc",
+          },
+        ],
+      },
+      {
+        displayName: "Queue Priority",
+        name: "queuePriority",
+        type: "options",
+        required: false,
+        default: "medium",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+            publishType: ["queue"],
+          },
+        },
+        options: [
+          { name: "High", value: "high" },
+          { name: "Medium", value: "medium" },
+          { name: "Low", value: "low" },
+        ],
+        description: "Priority when adding to a queue. Higher priority posts get earlier timeslots.",
+      },
+      {
+        displayName: "Thread Posts (JSON)",
+        name: "threadPosts",
+        type: "json",
+        required: false,
+        default: "[]",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        description: "Thread child posts as JSON array (X/Twitter and Threads only). Each item: {\"body\": \"text\", \"media\": [\"url\"]}. The parent post is published first, then each child as a reply in order.",
       },
       // Parameters for Post - Get operation
       {
@@ -654,6 +1414,59 @@ export class PostProxy implements INodeType {
           },
         ],
       },
+      // Parameters for Post - Get Stats operation
+      {
+        displayName: "Post IDs",
+        name: "postIds",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getStats"],
+          },
+        },
+        description: "Comma-separated list of post IDs to get stats for (max 50)",
+        placeholder: "abc123,def456,ghi789",
+      },
+      {
+        displayName: "Additional Filters",
+        name: "statsFilters",
+        type: "collection",
+        placeholder: "Add Filter",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getStats"],
+          },
+        },
+        options: [
+          {
+            displayName: "Profiles",
+            name: "profiles",
+            type: "string",
+            default: "",
+            description: "Comma-separated list of profile IDs or platform names to filter stats by (e.g. instagram,twitter or abc123,def456)",
+            placeholder: "instagram,twitter",
+          },
+          {
+            displayName: "From",
+            name: "from",
+            type: "dateTime",
+            default: "",
+            description: "Only include snapshots recorded at or after this time",
+          },
+          {
+            displayName: "To",
+            name: "to",
+            type: "dateTime",
+            default: "",
+            description: "Only include snapshots recorded at or before this time",
+          },
+        ],
+      },
       // Simplify option for Post operations
       {
         displayName: "Simplify",
@@ -734,7 +1547,60 @@ export class PostProxy implements INodeType {
         default: 10,
         description: "Number of items per page (API pagination parameter)",
       },
-      // Parameters for Profile - Get operation
+      {
+        displayName: "Filters",
+        name: "postFilters",
+        type: "collection",
+        placeholder: "Add Filter",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["getMany"],
+          },
+        },
+        options: [
+          {
+            displayName: "Status",
+            name: "status",
+            type: "options",
+            default: "",
+            options: [
+              { name: "Any", value: "" },
+              { name: "Draft", value: "draft" },
+              { name: "Scheduled", value: "scheduled" },
+              { name: "Published", value: "published" },
+              { name: "Failed", value: "failed" },
+            ],
+            description: "Filter posts by status",
+          },
+          {
+            displayName: "Platforms",
+            name: "platforms",
+            type: "multiOptions",
+            default: [],
+            options: [
+              { name: "Facebook", value: "facebook" },
+              { name: "Instagram", value: "instagram" },
+              { name: "LinkedIn", value: "linkedin" },
+              { name: "Pinterest", value: "pinterest" },
+              { name: "Threads", value: "threads" },
+              { name: "TikTok", value: "tiktok" },
+              { name: "X (Twitter)", value: "twitter" },
+              { name: "YouTube", value: "youtube" },
+            ],
+            description: "Filter posts by platform",
+          },
+          {
+            displayName: "Scheduled After",
+            name: "scheduled_after",
+            type: "dateTime",
+            default: "",
+            description: "Filter posts scheduled after this date",
+          },
+        ],
+      },
+      // Parameters for Profile - Get / GetPlacements / Delete operation
       {
         displayName: "Profile",
         name: "profileId",
@@ -743,7 +1609,7 @@ export class PostProxy implements INodeType {
         displayOptions: {
           show: {
             resource: ["profile"],
-            operation: ["get"],
+            operation: ["get", "getPlacements", "delete"],
           },
         },
         required: true,
@@ -1044,6 +1910,50 @@ export class PostProxy implements INodeType {
         } catch (error: any) {
           throw new NodeApiError(this.getNode(), error, {
             message: "Failed to search profiles",
+            description: error.message,
+          });
+        }
+      },
+      async searchQueues(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        try {
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/post_queues`,
+              headers: { "Content-Type": "application/json" },
+              json: true,
+              timeout: 30000,
+            },
+          );
+
+          const queues = response.data || (Array.isArray(response) ? response : []);
+
+          let results: INodeListSearchItems[] = queues.map((queue: any) => {
+            const tz = queue.timezone ? ` (${queue.timezone})` : "";
+            const paused = queue.enabled === false ? " [paused]" : "";
+            return {
+              name: `${queue.name}${tz}${paused}`,
+              value: queue.id != null ? String(queue.id) : "",
+            };
+          });
+
+          if (filter && typeof filter === "string") {
+            const filterLower = filter.toLowerCase();
+            results = results.filter((item) =>
+              item.name.toLowerCase().includes(filterLower) ||
+              String(item.value).toLowerCase().includes(filterLower)
+            );
+          }
+
+          return { results };
+        } catch (error: any) {
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to search queues",
             description: error.message,
           });
         }
@@ -1360,17 +2270,47 @@ export class PostProxy implements INodeType {
             // Parse and add platform parameters if provided
             if (platformParamsRaw && platformParamsRaw.trim() !== "" && platformParamsRaw !== "{}") {
               try {
-                const platformParams = typeof platformParamsRaw === "string" 
-                  ? JSON.parse(platformParamsRaw) 
+                const platformParams = typeof platformParamsRaw === "string"
+                  ? JSON.parse(platformParamsRaw)
                   : platformParamsRaw;
                 if (platformParams && typeof platformParams === "object" && Object.keys(platformParams).length > 0) {
-                  body.params = platformParams;
+                  body.platforms = platformParams;
                 }
               } catch (error) {
                 throw new NodeOperationError(
                   this.getNode(),
                   "Invalid Platform Parameters JSON",
                   { description: "Platform Parameters must be valid JSON. Error: " + (error as Error).message }
+                );
+              }
+            }
+
+            // Add queue parameters if publish type is queue
+            if (publishType === "queue") {
+              const queueIdForPostRaw = this.getNodeParameter("queueIdForPost", i, { mode: "id", value: "" });
+              const queueIdForPost = extractResourceLocatorValue(queueIdForPostRaw);
+              if (queueIdForPost && queueIdForPost.trim().length > 0) {
+                body.queue_id = queueIdForPost.trim();
+              }
+              const queuePriority = this.getNodeParameter("queuePriority", i, "medium") as string;
+              body.queue_priority = queuePriority;
+            }
+
+            // Add thread posts if provided
+            const threadPostsRaw = this.getNodeParameter("threadPosts", i, "[]") as string;
+            if (threadPostsRaw && threadPostsRaw.trim() !== "" && threadPostsRaw !== "[]") {
+              try {
+                const threadPosts = typeof threadPostsRaw === "string"
+                  ? JSON.parse(threadPostsRaw)
+                  : threadPostsRaw;
+                if (Array.isArray(threadPosts) && threadPosts.length > 0) {
+                  body.thread = threadPosts;
+                }
+              } catch (error) {
+                throw new NodeOperationError(
+                  this.getNode(),
+                  "Invalid Thread Posts JSON",
+                  { description: "Thread Posts must be a valid JSON array. Error: " + (error as Error).message }
                 );
               }
             }
@@ -1421,16 +2361,30 @@ export class PostProxy implements INodeType {
           perPage = this.getNodeParameter("per_page", i, 10) as number;
         }
         
+        const postFilters = this.getNodeParameter("postFilters", i, {}) as any;
+
         do {
           const queryParams = new URLSearchParams();
           queryParams.append("page", String(currentPage));
           queryParams.append("per_page", String(perPage));
-          
+
+          if (postFilters.status && postFilters.status !== "") {
+            queryParams.append("status", postFilters.status);
+          }
+          if (postFilters.platforms && postFilters.platforms.length > 0) {
+            for (const p of postFilters.platforms) {
+              queryParams.append("platforms[]", p);
+            }
+          }
+          if (postFilters.scheduled_after && postFilters.scheduled_after.trim().length > 0) {
+            queryParams.append("scheduled_after", postFilters.scheduled_after.trim());
+          }
+
           const response = await makeRequest.call(this, "GET", `/posts?${queryParams.toString()}`);
-          
+
           const items = response.data || response.items || (Array.isArray(response) ? response : []);
           allItems = allItems.concat(items);
-          
+
           if (returnAll) {
             total = response.total || items.length;
             perPage = response.per_page || perPage;
@@ -1504,20 +2458,46 @@ export class PostProxy implements INodeType {
         }
         
         responseData = await makeRequest.call(this, "POST", `/posts/${postId}/publish`);
-        
+
         const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         if (simplify && responseData) {
           responseData = simplifyPost(responseData);
         }
+      } else if (operation === "getStats") {
+        const postIds = this.getNodeParameter("postIds", i) as string;
+        const statsFilters = this.getNodeParameter("statsFilters", i, {}) as any;
+
+        if (!postIds || postIds.trim().length === 0) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "Post IDs are required",
+            { description: "Please provide at least one post ID." }
+          );
+        }
+
+        const queryParams = new URLSearchParams();
+        queryParams.append("post_ids", postIds.trim());
+
+        if (statsFilters.profiles && statsFilters.profiles.trim().length > 0) {
+          queryParams.append("profiles", statsFilters.profiles.trim());
+        }
+        if (statsFilters.from && statsFilters.from.trim().length > 0) {
+          queryParams.append("from", statsFilters.from.trim());
+        }
+        if (statsFilters.to && statsFilters.to.trim().length > 0) {
+          queryParams.append("to", statsFilters.to.trim());
+        }
+
+        responseData = await makeRequest.call(this, "GET", `/posts/stats?${queryParams.toString()}`);
       }
     }
 
     // PROFILE RESOURCE
     else if (resource === "profile") {
-      if (operation === "get") {
+      if (operation === "delete") {
         const profileIdRaw = this.getNodeParameter("profileId", i);
         const profileId = extractResourceLocatorValue(profileIdRaw);
-        
+
         if (!profileId) {
           throw new NodeOperationError(
             this.getNode(),
@@ -1525,34 +2505,63 @@ export class PostProxy implements INodeType {
             { description: "Please provide a valid Profile ID." }
           );
         }
-        
+
+        responseData = await makeRequest.call(this, "DELETE", `/profiles/${profileId}`);
+      } else if (operation === "get") {
+        const profileIdRaw = this.getNodeParameter("profileId", i);
+        const profileId = extractResourceLocatorValue(profileIdRaw);
+
+        if (!profileId) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "Profile ID is required",
+            { description: "Please provide a valid Profile ID." }
+          );
+        }
+
         responseData = await makeRequest.call(this, "GET", `/profiles/${profileId}`);
-        
+
         const simplify = this.getNodeParameter("simplify", i, true) as boolean;
         if (simplify && responseData) {
           responseData = simplifyProfile(responseData);
         }
+      } else if (operation === "getPlacements") {
+        const profileIdRaw = this.getNodeParameter("profileId", i);
+        const profileId = extractResourceLocatorValue(profileIdRaw);
+
+        if (!profileId) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "Profile ID is required",
+            { description: "Please provide a valid Profile ID." }
+          );
+        }
+
+        const response = await makeRequest.call(this, "GET", `/profiles/${profileId}/placements`);
+        responseData = {
+          placements: Array.isArray(response) ? response : (response.placements || response.data || []),
+        };
       } else if (operation === "getMany") {
         const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
         const simplify = this.getNodeParameter("simplify", i, true) as boolean;
-        
+
         let allItems: any[] = [];
         let currentPage = 0;
         let total = 0;
         let perPage = 10;
-        
+
         if (!returnAll) {
           currentPage = this.getNodeParameter("page", i, 0) as number;
           perPage = this.getNodeParameter("per_page", i, 10) as number;
         }
-        
+
         do {
           const queryParams = new URLSearchParams();
           queryParams.append("page", String(currentPage));
           queryParams.append("per_page", String(perPage));
-          
+
           const response = await makeRequest.call(this, "GET", `/profiles?${queryParams.toString()}`);
-          
+
           const items = response.data || response.items || (Array.isArray(response) ? response : []);
           allItems = allItems.concat(items);
           
@@ -1583,9 +2592,386 @@ export class PostProxy implements INodeType {
       }
     }
 
+    // QUEUE RESOURCE
+    else if (resource === "queue") {
+      if (operation === "list") {
+        responseData = await makeRequest.call(this, "GET", "/post_queues");
+      } else if (operation === "get") {
+        const queueId = this.getNodeParameter("queueId", i) as string;
+        if (!queueId || queueId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Queue ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/post_queues/${queueId.trim()}`);
+      } else if (operation === "nextSlot") {
+        const queueId = this.getNodeParameter("queueId", i) as string;
+        if (!queueId || queueId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Queue ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/post_queues/${queueId.trim()}/next_slot`);
+      } else if (operation === "create") {
+        const profileGroupId = this.getNodeParameter("queueProfileGroupId", i) as string;
+        const name = this.getNodeParameter("queueName", i) as string;
+        const createFields = this.getNodeParameter("queueCreateFields", i, {}) as any;
+
+        if (!profileGroupId || profileGroupId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Profile Group ID is required", {});
+        }
+        if (!name || name.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Queue name is required", {});
+        }
+
+        const postQueue: any = { name: name.trim() };
+        if (createFields.description && createFields.description.trim().length > 0) {
+          postQueue.description = createFields.description.trim();
+        }
+        if (createFields.timezone && createFields.timezone.trim().length > 0) {
+          postQueue.timezone = createFields.timezone.trim();
+        }
+        if (createFields.jitter !== undefined) {
+          postQueue.jitter = createFields.jitter;
+        }
+        if (createFields.timeslots && createFields.timeslots !== "[]") {
+          try {
+            const timeslots = typeof createFields.timeslots === "string"
+              ? JSON.parse(createFields.timeslots)
+              : createFields.timeslots;
+            if (Array.isArray(timeslots) && timeslots.length > 0) {
+              postQueue.queue_timeslots_attributes = timeslots;
+            }
+          } catch (error) {
+            throw new NodeOperationError(
+              this.getNode(),
+              "Invalid Timeslots JSON",
+              { description: "Timeslots must be a valid JSON array. Error: " + (error as Error).message }
+            );
+          }
+        }
+
+        const body = {
+          profile_group_id: profileGroupId.trim(),
+          post_queue: postQueue,
+        };
+
+        responseData = await makeRequest.call(this, "POST", "/post_queues", body);
+      } else if (operation === "update") {
+        const queueId = this.getNodeParameter("queueId", i) as string;
+        const updateFields = this.getNodeParameter("queueUpdateFields", i, {}) as any;
+
+        if (!queueId || queueId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Queue ID is required", {});
+        }
+
+        const postQueue: any = {};
+        if (updateFields.name && updateFields.name.trim().length > 0) {
+          postQueue.name = updateFields.name.trim();
+        }
+        if (updateFields.description !== undefined && updateFields.description !== "") {
+          postQueue.description = updateFields.description;
+        }
+        if (updateFields.timezone && updateFields.timezone.trim().length > 0) {
+          postQueue.timezone = updateFields.timezone.trim();
+        }
+        if (updateFields.enabled !== undefined) {
+          postQueue.enabled = updateFields.enabled;
+        }
+        if (updateFields.jitter !== undefined) {
+          postQueue.jitter = updateFields.jitter;
+        }
+        if (updateFields.timeslots && updateFields.timeslots !== "[]") {
+          try {
+            const timeslots = typeof updateFields.timeslots === "string"
+              ? JSON.parse(updateFields.timeslots)
+              : updateFields.timeslots;
+            if (Array.isArray(timeslots) && timeslots.length > 0) {
+              postQueue.queue_timeslots_attributes = timeslots;
+            }
+          } catch (error) {
+            throw new NodeOperationError(
+              this.getNode(),
+              "Invalid Timeslots JSON",
+              { description: "Timeslots must be a valid JSON array. Error: " + (error as Error).message }
+            );
+          }
+        }
+
+        if (Object.keys(postQueue).length === 0) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "At least one field must be provided to update",
+            { description: "Please provide at least one field to update the queue." }
+          );
+        }
+
+        responseData = await makeRequest.call(this, "PATCH", `/post_queues/${queueId.trim()}`, { post_queue: postQueue });
+      } else if (operation === "delete") {
+        const queueId = this.getNodeParameter("queueId", i) as string;
+        if (!queueId || queueId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Queue ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "DELETE", `/post_queues/${queueId.trim()}`);
+      }
+    }
+
+    // WEBHOOK RESOURCE
+    else if (resource === "webhook") {
+      if (operation === "list") {
+        responseData = await makeRequest.call(this, "GET", "/webhooks");
+      } else if (operation === "get") {
+        const webhookId = this.getNodeParameter("webhookId", i) as string;
+        if (!webhookId || webhookId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Webhook ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/webhooks/${webhookId.trim()}`);
+      } else if (operation === "create") {
+        const url = this.getNodeParameter("webhookUrl", i) as string;
+        const events = this.getNodeParameter("webhookEvents", i) as string[];
+        const description = this.getNodeParameter("webhookDescription", i, "") as string;
+
+        if (!url || url.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "URL is required", {});
+        }
+        if (!events || events.length === 0) {
+          throw new NodeOperationError(this.getNode(), "At least one event must be selected", {});
+        }
+
+        const body: any = {
+          url: url.trim(),
+          events,
+        };
+        if (description && description.trim().length > 0) {
+          body.description = description.trim();
+        }
+
+        responseData = await makeRequest.call(this, "POST", "/webhooks", body);
+      } else if (operation === "update") {
+        const webhookId = this.getNodeParameter("webhookId", i) as string;
+        const updateFields = this.getNodeParameter("webhookUpdateFields", i, {}) as any;
+
+        if (!webhookId || webhookId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Webhook ID is required", {});
+        }
+
+        const body: any = {};
+        if (updateFields.url && updateFields.url.trim().length > 0) {
+          body.url = updateFields.url.trim();
+        }
+        if (updateFields.events && updateFields.events.length > 0) {
+          body.events = updateFields.events;
+        }
+        if (updateFields.enabled !== undefined) {
+          body.enabled = updateFields.enabled;
+        }
+        if (updateFields.description !== undefined && updateFields.description !== "") {
+          body.description = updateFields.description;
+        }
+
+        if (Object.keys(body).length === 0) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "At least one field must be provided to update",
+            { description: "Please provide at least one field to update the webhook." }
+          );
+        }
+
+        responseData = await makeRequest.call(this, "PATCH", `/webhooks/${webhookId.trim()}`, body);
+      } else if (operation === "delete") {
+        const webhookId = this.getNodeParameter("webhookId", i) as string;
+        if (!webhookId || webhookId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Webhook ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "DELETE", `/webhooks/${webhookId.trim()}`);
+      } else if (operation === "listDeliveries") {
+        const webhookId = this.getNodeParameter("webhookId", i) as string;
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+
+        if (!webhookId || webhookId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Webhook ID is required", {});
+        }
+
+        let allItems: any[] = [];
+        let currentPage = 0;
+        let total = 0;
+        let perPage = 20;
+
+        if (!returnAll) {
+          perPage = this.getNodeParameter("limit", i, 20) as number;
+        }
+
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+
+          const response = await makeRequest.call(this, "GET", `/webhooks/${webhookId.trim()}/deliveries?${queryParams.toString()}`);
+
+          const items = response.data || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
+
+        responseData = {
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
+        };
+      }
+    }
+
+    // COMMENT RESOURCE
+    else if (resource === "comment") {
+      const commentPostId = this.getNodeParameter("commentPostId", i) as string;
+      const commentProfileId = this.getNodeParameter("commentProfileId", i) as string;
+
+      if (!commentPostId || commentPostId.trim().length === 0) {
+        throw new NodeOperationError(
+          this.getNode(),
+          "Post ID is required",
+          { description: "Please provide a valid Post ID." }
+        );
+      }
+      if (!commentProfileId || commentProfileId.trim().length === 0) {
+        throw new NodeOperationError(
+          this.getNode(),
+          "Profile ID is required",
+          { description: "Please provide a valid Profile ID." }
+        );
+      }
+
+      const postId = commentPostId.trim();
+      const profileId = commentProfileId.trim();
+
+      if (operation === "list") {
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+        let allItems: any[] = [];
+        let currentPage = 0;
+        let total = 0;
+        let perPage = 20;
+
+        if (!returnAll) {
+          currentPage = this.getNodeParameter("page", i, 0) as number;
+          perPage = this.getNodeParameter("limit", i, 20) as number;
+        }
+
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("profile_id", profileId);
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+
+          const response = await makeRequest.call(this, "GET", `/posts/${postId}/comments?${queryParams.toString()}`);
+
+          const items = response.data || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
+
+        responseData = {
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
+        };
+      } else if (operation === "get") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const queryParams = new URLSearchParams();
+        queryParams.append("profile_id", profileId);
+        responseData = await makeRequest.call(this, "GET", `/posts/${postId}/comments/${commentId.trim()}?${queryParams.toString()}`);
+      } else if (operation === "create") {
+        const text = this.getNodeParameter("commentText", i) as string;
+        const parentId = this.getNodeParameter("commentParentId", i, "") as string;
+
+        if (!text || text.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment text is required", {});
+        }
+
+        const body: any = {
+          profile_id: profileId,
+          body: text.trim(),
+        };
+        if (parentId && parentId.trim().length > 0) {
+          body.parent_id = parentId.trim();
+        }
+
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments`, body);
+      } else if (operation === "delete") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const body = { profile_id: profileId };
+        responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}/comments/${commentId.trim()}`, body);
+      } else if (operation === "hide") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const body = { profile_id: profileId };
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/hide`, body);
+      } else if (operation === "unhide") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const body = { profile_id: profileId };
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/unhide`, body);
+      } else if (operation === "like") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const body = { profile_id: profileId };
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/like`, body);
+      } else if (operation === "unlike") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        const body = { profile_id: profileId };
+        responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}/comments/${commentId.trim()}/like`, body);
+      }
+    }
+
     // PROFILE GROUP RESOURCE
     else if (resource === "profileGroup") {
-      if (operation === "getMany") {
+      if (operation === "get") {
+        const pgId = this.getNodeParameter("profileGroupId", i) as string;
+        if (!pgId || pgId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Profile Group ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/profile_groups/${pgId.trim()}`);
+      } else if (operation === "create") {
+        const name = this.getNodeParameter("profileGroupName", i) as string;
+        if (!name || name.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Name is required", {});
+        }
+        responseData = await makeRequest.call(this, "POST", "/profile_groups", {
+          profile_group: { name: name.trim() },
+        });
+      } else if (operation === "delete") {
+        const pgId = this.getNodeParameter("profileGroupId", i) as string;
+        if (!pgId || pgId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Profile Group ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "DELETE", `/profile_groups/${pgId.trim()}`);
+      } else if (operation === "getMany") {
         const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
         
         let allItems: any[] = [];
