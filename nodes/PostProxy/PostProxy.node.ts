@@ -13,6 +13,12 @@ import {
 
 const BASE_URL = "https://api.postproxy.dev/api";
 
+const PLATFORM_PLACEMENT_KEY: Record<string, string> = {
+  facebook: "page_id",
+  linkedin: "organization_id",
+  pinterest: "board_id",
+};
+
 interface PostproxyError {
   message?: string;
   error?: string;
@@ -132,6 +138,97 @@ function extractResourceLocatorValue(value: any): string {
     return value.value || "";
   }
   return "";
+}
+
+async function searchPlacementsByPlatform(
+  this: ILoadOptionsFunctions,
+  platform: string,
+  filter?: string,
+): Promise<INodeListSearchResult> {
+  try {
+    // Get selected profiles from node params to restrict API calls
+    let selectedProfileIds: string[] = [];
+    try {
+      const profiles = this.getCurrentNodeParameter("profiles") as string[] | undefined;
+      if (Array.isArray(profiles)) selectedProfileIds = profiles;
+    } catch {
+      // ignore — will load all profiles
+    }
+
+    // Fetch all profiles and filter by platform
+    const profilesResponse = await this.helpers.httpRequestWithAuthentication.call(
+      this,
+      "postProxyApi",
+      {
+        method: "GET",
+        url: `${BASE_URL}/profiles`,
+        headers: { "Content-Type": "application/json" },
+        json: true,
+        timeout: 30000,
+      },
+    );
+
+    let allProfiles: any[] = profilesResponse.data || profilesResponse.items || (Array.isArray(profilesResponse) ? profilesResponse : []);
+
+    // Keep only profiles of the requested platform
+    allProfiles = allProfiles.filter((p: any) => p.platform === platform);
+
+    // If user has selected specific profiles, restrict to those
+    if (selectedProfileIds.length > 0) {
+      allProfiles = allProfiles.filter((p: any) =>
+        selectedProfileIds.includes(String(p.id))
+      );
+    }
+
+    if (allProfiles.length === 0) return { results: [] };
+
+    // Fetch placements for each matching profile in parallel
+    const placementArrays = await Promise.all(
+      allProfiles.map(async (profile: any) => {
+        try {
+          const response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            "postProxyApi",
+            {
+              method: "GET",
+              url: `${BASE_URL}/profiles/${profile.id}/placements`,
+              headers: { "Content-Type": "application/json" },
+              json: true,
+              timeout: 30000,
+            },
+          );
+          const items: any[] = Array.isArray(response) ? response : (response.placements || response.data || []);
+          return items;
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    // Flatten and deduplicate by id
+    const seen = new Set<string>();
+    let results: INodeListSearchItems[] = [];
+    for (const items of placementArrays) {
+      for (const p of items) {
+        const id = p.id?.toString() || "";
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        results.push({ name: p.name || id, value: id });
+      }
+    }
+
+    if (filter && typeof filter === "string") {
+      const filterLower = filter.toLowerCase();
+      results = results.filter((item) =>
+        item.name.toLowerCase().includes(filterLower) ||
+        item.value.toString().toLowerCase().includes(filterLower)
+      );
+    }
+
+    return { results };
+  } catch {
+    return { results: [] };
+  }
 }
 
 async function makeRequest(
@@ -1138,6 +1235,93 @@ export class PostProxy implements INodeType {
         description: "Select the social media platforms to publish to",
       },
       {
+        displayName: "Additional Fields",
+        name: "postAdditionalFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["post"],
+            operation: ["create"],
+          },
+        },
+        options: [
+          {
+            displayName: "Facebook Page",
+            name: "facebookPage",
+            type: "resourceLocator",
+            default: { mode: "list", value: "" },
+            description: "Facebook page to publish to (for Facebook profiles)",
+            modes: [
+              {
+                displayName: "From List",
+                name: "list",
+                type: "list",
+                typeOptions: {
+                  searchListMethod: "searchFacebookPages",
+                  searchable: true,
+                },
+              },
+              {
+                displayName: "By ID",
+                name: "id",
+                type: "string",
+                placeholder: "e.g. 123456789",
+              },
+            ],
+          },
+          {
+            displayName: "LinkedIn Organization",
+            name: "linkedinOrganization",
+            type: "resourceLocator",
+            default: { mode: "list", value: "" },
+            description: "LinkedIn organization page to publish to (for LinkedIn profiles)",
+            modes: [
+              {
+                displayName: "From List",
+                name: "list",
+                type: "list",
+                typeOptions: {
+                  searchListMethod: "searchLinkedInOrganizations",
+                  searchable: true,
+                },
+              },
+              {
+                displayName: "By ID",
+                name: "id",
+                type: "string",
+                placeholder: "e.g. 123456789",
+              },
+            ],
+          },
+          {
+            displayName: "Pinterest Board",
+            name: "pinterestBoard",
+            type: "resourceLocator",
+            default: { mode: "list", value: "" },
+            description: "Pinterest board to publish to (for Pinterest profiles)",
+            modes: [
+              {
+                displayName: "From List",
+                name: "list",
+                type: "list",
+                typeOptions: {
+                  searchListMethod: "searchPinterestBoards",
+                  searchable: true,
+                },
+              },
+              {
+                displayName: "By ID",
+                name: "id",
+                type: "string",
+                placeholder: "e.g. abc123",
+              },
+            ],
+          },
+        ],
+      },
+      {
         displayName: "Content",
         name: "content",
         type: "string",
@@ -2001,6 +2185,24 @@ export class PostProxy implements INodeType {
           });
         }
       },
+      async searchFacebookPages(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        return searchPlacementsByPlatform.call(this, "facebook", filter);
+      },
+      async searchLinkedInOrganizations(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        return searchPlacementsByPlatform.call(this, "linkedin", filter);
+      },
+      async searchPinterestBoards(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        return searchPlacementsByPlatform.call(this, "pinterest", filter);
+      },
     },
     loadOptions: {
       async getProfileGroups(
@@ -2283,6 +2485,30 @@ export class PostProxy implements INodeType {
                   { description: "Platform Parameters must be valid JSON. Error: " + (error as Error).message }
                 );
               }
+            }
+
+            // Process per-platform placement fields from Additional Fields collection
+            const postAdditionalFields = this.getNodeParameter("postAdditionalFields", i, {}) as any;
+
+            const facebookPageId = extractResourceLocatorValue(postAdditionalFields.facebookPage);
+            if (facebookPageId) {
+              if (!body.platforms) body.platforms = {};
+              if (!body.platforms.facebook) body.platforms.facebook = {};
+              body.platforms.facebook.page_id = facebookPageId;
+            }
+
+            const linkedinOrgId = extractResourceLocatorValue(postAdditionalFields.linkedinOrganization);
+            if (linkedinOrgId) {
+              if (!body.platforms) body.platforms = {};
+              if (!body.platforms.linkedin) body.platforms.linkedin = {};
+              body.platforms.linkedin.organization_id = linkedinOrgId;
+            }
+
+            const pinterestBoardId = extractResourceLocatorValue(postAdditionalFields.pinterestBoard);
+            if (pinterestBoardId) {
+              if (!body.platforms) body.platforms = {};
+              if (!body.platforms.pinterest) body.platforms.pinterest = {};
+              body.platforms.pinterest.board_id = pinterestBoardId;
             }
 
             // Add queue parameters if publish type is queue
@@ -2904,7 +3130,7 @@ export class PostProxy implements INodeType {
 
         const body: any = {
           profile_id: profileId,
-          body: text.trim(),
+          text: text.trim(),
         };
         if (parentId && parentId.trim().length > 0) {
           body.parent_id = parentId.trim();
@@ -2938,14 +3164,14 @@ export class PostProxy implements INodeType {
           throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
         }
         const body = { profile_id: profileId };
-        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/like`, body);
+        responseData = await makeRequest.call(this, "PUT", `/posts/${postId}/comments/${commentId.trim()}/like`, body);
       } else if (operation === "unlike") {
         const commentId = this.getNodeParameter("commentId", i) as string;
         if (!commentId || commentId.trim().length === 0) {
           throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
         }
         const body = { profile_id: profileId };
-        responseData = await makeRequest.call(this, "DELETE", `/posts/${postId}/comments/${commentId.trim()}/like`, body);
+        responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/unlike`, body);
       }
     }
 
