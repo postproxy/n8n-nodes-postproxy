@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-11
+
+### Added
+- **Comment resource**: Create, Delete, Get, List, Hide, Unhide, Like, Unlike operations
+- **Queue resource**: Create, Delete, Get, List, Update, Get Next Slot operations
+- **Webhook resource**: Create, Delete, Get, List, Update operations
+- **Profile Group resource**: Create and List operations
+- **Placement support in Post › Create**: Facebook Page, LinkedIn Organization, and Pinterest Board selectors added under Additional Fields; list loaded from API or entered by ID; automatically mapped to correct platform parameter keys (`page_id`, `organization_id`, `board_id`)
+
+### Other
+- `.gitignore`: added `*_DiskStation_*` pattern to exclude Synology Drive case-conflict files
+
 ## [0.2.8] - 2026-02-26
 
 ### Changed
@@ -99,7 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.5...v0.2.6
