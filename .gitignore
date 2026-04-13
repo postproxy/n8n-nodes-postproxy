@@ -13,6 +13,7 @@ yarn-error.log*
 
 # OS
 .DS_Store
+*_DiskStation_*
 
 # n8n local data
 .n8n/
