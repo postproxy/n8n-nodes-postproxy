@@ -226,8 +226,11 @@ async function searchPlacementsByPlatform(
     }
 
     return { results };
-  } catch {
-    return { results: [] };
+  } catch (error: any) {
+    throw new NodeApiError(this.getNode(), error, {
+      message: `Failed to load ${platform} placements`,
+      description: error.message,
+    });
   }
 }
 

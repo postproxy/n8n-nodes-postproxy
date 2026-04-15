@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-15
+
+### Fixed
+- Placement dropdown now shows an error instead of silently returning empty results on API failures
+
+### Added
+- GitHub Actions publish workflow with npm provenance support
+
 ## [0.3.0] - 2026-04-11
 
 ### Added
@@ -111,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.6...v0.2.7
