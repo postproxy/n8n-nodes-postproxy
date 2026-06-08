@@ -17,11 +17,13 @@ const PLATFORM_PLACEMENT_KEY: Record<string, string> = {
   facebook: "page_id",
   linkedin: "organization_id",
   pinterest: "board_id",
+  telegram: "chat_id",
 };
 
 interface PostproxyError {
   message?: string;
   error?: string;
+  errors?: string[];
   request_id?: string;
 }
 
@@ -149,8 +151,11 @@ async function searchPlacementsByPlatform(
     // Get selected profiles from node params to restrict API calls
     let selectedProfileIds: string[] = [];
     try {
-      const profiles = this.getCurrentNodeParameter("profiles") as string[] | undefined;
-      if (Array.isArray(profiles)) selectedProfileIds = profiles;
+      const profilesData = this.getCurrentNodeParameter("profiles") as any;
+      const items: any[] = profilesData?.items || [];
+      selectedProfileIds = items
+        .map((item: any) => extractResourceLocatorValue(item.profileId))
+        .filter(Boolean);
     } catch {
       // ignore — will load all profiles
     }
@@ -258,7 +263,11 @@ async function makeRequest(
 
     return response;
   } catch (error: any) {
-    const statusCode = error.statusCode || error.response?.status;
+    // n8n wraps HTTP errors as NodeApiError which stores the status in .httpCode (string)
+    const statusCode =
+      error.statusCode ||
+      error.response?.status ||
+      (error.httpCode ? parseInt(String(error.httpCode), 10) : 0);
     const requestId = error.response?.headers?.["x-request-id"];
 
     let errorMessage = "Postproxy API request failed";
@@ -269,8 +278,31 @@ async function makeRequest(
     }
 
     if (statusCode) {
-      const errorBody: PostproxyError = error.response?.body || {};
-      const apiMessage = errorBody.message || errorBody.error || error.message;
+      let errorBody: PostproxyError = {};
+      try {
+        // n8n wraps HTTP errors as NodeApiError; body can be in several locations
+        // depending on n8n version and whether it uses got or fetch internally
+        const rawBody =
+          error.response?.data ??
+          error.response?.body ??
+          error.cause?.response?.data ??
+          error.cause?.response?.body ??
+          error.context?.data ??
+          error.context?.body;
+        if (typeof rawBody === "string" && rawBody.length > 0) {
+          errorBody = JSON.parse(rawBody);
+        } else if (typeof rawBody === "object" && rawBody !== null) {
+          errorBody = rawBody as PostproxyError;
+        }
+      } catch {
+        // ignore JSON parse errors
+      }
+      const apiMessage =
+        errorBody.message ||
+        errorBody.error ||
+        (errorBody.errors?.length ? errorBody.errors.join("; ") : undefined) ||
+        error.description ||
+        error.message;
 
       if (statusCode >= 400 && statusCode < 500) {
         errorMessage = `Postproxy API error (${statusCode})`;
@@ -296,7 +328,10 @@ async function makeRequest(
       description = "Could not connect to Postproxy API. Please check your network connection.";
     }
 
-    throw new NodeApiError(this.getNode(), error, {
+    // Pass a synthetic inner error so n8n's "Full message" shows our message,
+    // not n8n's hardcoded generic text (e.g. "Your request is invalid...")
+    const innerError: any = { message: errorMessage };
+    throw new NodeApiError(this.getNode(), innerError, {
       message: errorMessage,
       description: description || error.message,
       httpCode: String(statusCode || ""),
@@ -334,6 +369,14 @@ export class PostProxy implements INodeType {
           {
             name: "Comment",
             value: "comment",
+          },
+          {
+            name: "DM Chat",
+            value: "dmChat",
+          },
+          {
+            name: "DM Message",
+            value: "dmMessage",
           },
           {
             name: "Post",
@@ -662,6 +705,14 @@ export class PostProxy implements INodeType {
           { name: "All Events (*)", value: "*" },
           { name: "Comment Created", value: "comment.created" },
           { name: "Media Failed", value: "media.failed" },
+          { name: "Message Delivered", value: "message.delivered" },
+          { name: "Message Deleted", value: "message.deleted" },
+          { name: "Message Edited", value: "message.edited" },
+          { name: "Message Failed", value: "message.failed" },
+          { name: "Message Failed Waiting For Retry", value: "message.failed_waiting_for_retry" },
+          { name: "Message Read", value: "message.read" },
+          { name: "Message Received", value: "message.received" },
+          { name: "Message Sent", value: "message.sent" },
           { name: "Platform Post Failed", value: "platform_post.failed" },
           { name: "Platform Post Failed Waiting For Retry", value: "platform_post.failed_waiting_for_retry" },
           { name: "Platform Post Insights", value: "platform_post.insights" },
@@ -669,6 +720,7 @@ export class PostProxy implements INodeType {
           { name: "Post Processed", value: "post.processed" },
           { name: "Profile Connected", value: "profile.connected" },
           { name: "Profile Disconnected", value: "profile.disconnected" },
+          { name: "Reaction Received", value: "reaction.received" },
         ],
         description: "Event types to subscribe to",
       },
@@ -717,6 +769,14 @@ export class PostProxy implements INodeType {
               { name: "All Events (*)", value: "*" },
               { name: "Comment Created", value: "comment.created" },
               { name: "Media Failed", value: "media.failed" },
+              { name: "Message Delivered", value: "message.delivered" },
+              { name: "Message Deleted", value: "message.deleted" },
+              { name: "Message Edited", value: "message.edited" },
+              { name: "Message Failed", value: "message.failed" },
+              { name: "Message Failed Waiting For Retry", value: "message.failed_waiting_for_retry" },
+              { name: "Message Read", value: "message.read" },
+              { name: "Message Received", value: "message.received" },
+              { name: "Message Sent", value: "message.sent" },
               { name: "Platform Post Failed", value: "platform_post.failed" },
               { name: "Platform Post Failed Waiting For Retry", value: "platform_post.failed_waiting_for_retry" },
               { name: "Platform Post Insights", value: "platform_post.insights" },
@@ -724,6 +784,7 @@ export class PostProxy implements INodeType {
               { name: "Post Processed", value: "post.processed" },
               { name: "Profile Connected", value: "profile.connected" },
               { name: "Profile Disconnected", value: "profile.disconnected" },
+              { name: "Reaction Received", value: "reaction.received" },
             ],
             description: "New event types to subscribe to",
           },
@@ -830,6 +891,12 @@ export class PostProxy implements INodeType {
             action: "Unhide a comment",
           },
           {
+            name: "Private Reply",
+            value: "privateReply",
+            description: "Send a DM to the comment author (Facebook & Instagram only, one reply per comment)",
+            action: "Private reply to a comment",
+          },
+          {
             name: "Unlike",
             value: "unlike",
             description: "Remove a like from a comment",
@@ -879,7 +946,7 @@ export class PostProxy implements INodeType {
         displayOptions: {
           show: {
             resource: ["comment"],
-            operation: ["get", "delete", "hide", "unhide", "like", "unlike"],
+            operation: ["get", "delete", "hide", "unhide", "like", "unlike", "privateReply"],
           },
         },
         description: "The comment ID (Postproxy ID or platform external ID)",
@@ -918,6 +985,24 @@ export class PostProxy implements INodeType {
         },
         description: "ID of the comment to reply to. Leave empty to comment on the post itself.",
         placeholder: "e.g. cmt_abc123",
+      },
+      // Comment parameters - Private reply text
+      {
+        displayName: "Reply Text",
+        name: "commentPrivateReplyText",
+        type: "string",
+        required: true,
+        default: "",
+        typeOptions: {
+          rows: 3,
+        },
+        displayOptions: {
+          show: {
+            resource: ["comment"],
+            operation: ["privateReply"],
+          },
+        },
+        description: "Text of the private DM to send to the comment author",
       },
       // Comment parameters - Pagination (used by list)
       {
@@ -967,6 +1052,409 @@ export class PostProxy implements INodeType {
         },
         default: 0,
         description: "Page number (0-indexed) for pagination",
+      },
+      // DM Chat resource operations
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+          },
+        },
+        options: [
+          {
+            name: "Create",
+            value: "create",
+            description: "Create or find an existing chat with a participant",
+            action: "Create a DM chat",
+          },
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a chat by ID",
+            action: "Get a DM chat",
+          },
+          {
+            name: "List",
+            value: "list",
+            description: "List chats for a profile, ordered by last message",
+            action: "List DM chats",
+          },
+        ],
+        default: "list",
+        description: "The operation to perform",
+      },
+      // DM Chat - Profile ID (list, create)
+      {
+        displayName: "Profile ID",
+        name: "dmChatProfileId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["list", "create"],
+          },
+        },
+        description: "The profile ID to list or create chats under",
+        placeholder: "e.g. prof_abc123",
+      },
+      // DM Chat - Chat ID (get, archive, unarchive)
+      {
+        displayName: "Chat ID",
+        name: "dmChatId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["get"],
+          },
+        },
+        description: "The chat ID",
+        placeholder: "e.g. chat_xyz789",
+      },
+      // DM Chat - Participant External ID (create)
+      {
+        displayName: "Participant External ID",
+        name: "dmParticipantExternalId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["create"],
+          },
+        },
+        description: "Platform-native participant ID (e.g. Instagram IGSID, Telegram user ID, Bluesky DID)",
+        placeholder: "e.g. igsid_8675309",
+      },
+      // DM Chat - Additional fields (create)
+      {
+        displayName: "Additional Fields",
+        name: "dmChatCreateFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["create"],
+          },
+        },
+        options: [
+          {
+            displayName: "Participant Name",
+            name: "participant_name",
+            type: "string",
+            default: "",
+            description: "Display name of the participant",
+          },
+          {
+            displayName: "Participant Username",
+            name: "participant_username",
+            type: "string",
+            default: "",
+            description: "Username of the participant",
+          },
+        ],
+      },
+      // DM Chat - Return All (list)
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["list"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      // DM Chat - Filters (list)
+      {
+        displayName: "Filters",
+        name: "dmChatListFilters",
+        type: "collection",
+        placeholder: "Add Filter",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["dmChat"],
+            operation: ["list"],
+          },
+        },
+        options: [
+          {
+            displayName: "After",
+            name: "after",
+            type: "dateTime",
+            default: "",
+            description: "Return chats with last_message_at after this ISO 8601 timestamp",
+          },
+          {
+            displayName: "Before",
+            name: "before",
+            type: "dateTime",
+            default: "",
+            description: "Return chats with last_message_at before this ISO 8601 timestamp",
+          },
+          {
+            displayName: "Page",
+            name: "page",
+            type: "number",
+            default: 0,
+            typeOptions: { minValue: 0 },
+            description: "Page number (0-indexed)",
+          },
+          {
+            displayName: "Per Page",
+            name: "per_page",
+            type: "number",
+            default: 20,
+            typeOptions: { minValue: 1 },
+            description: "Number of results per page",
+          },
+        ],
+      },
+      // DM Message resource operations
+      {
+        displayName: "Operation",
+        name: "operation",
+        type: "options",
+        noDataExpression: true,
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+          },
+        },
+        options: [
+          {
+            name: "Get",
+            value: "get",
+            description: "Get a message by ID",
+            action: "Get a DM message",
+          },
+          {
+            name: "List",
+            value: "list",
+            description: "List messages in a chat",
+            action: "List DM messages",
+          },
+          {
+            name: "React",
+            value: "react",
+            description: "Add a reaction to a message — Facebook & Instagram only",
+            action: "React to a DM message",
+          },
+          {
+            name: "Send",
+            value: "send",
+            description: "Send a message (text or single media attachment)",
+            action: "Send a DM message",
+          },
+          {
+            name: "Unreact",
+            value: "unreact",
+            description: "Remove the business account's reaction from a message",
+            action: "Unreact to a DM message",
+          },
+        ],
+        default: "list",
+        description: "The operation to perform",
+      },
+      // DM Message - Chat ID (list, send)
+      {
+        displayName: "Chat ID",
+        name: "dmMessageChatId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["list", "send"],
+          },
+        },
+        description: "The chat ID to list or send messages in",
+        placeholder: "e.g. chat_xyz789",
+      },
+      // DM Message - Message ID (get, react, unreact)
+      {
+        displayName: "Message ID",
+        name: "dmMessageId",
+        type: "string",
+        required: true,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["get", "react", "unreact"],
+          },
+        },
+        description: "The message ID (Postproxy ID or platform external_id)",
+        placeholder: "e.g. msg_111",
+      },
+      // DM Message - Body (send)
+      {
+        displayName: "Body",
+        name: "dmMessageBody",
+        type: "string",
+        required: false,
+        default: "",
+        typeOptions: {
+          rows: 3,
+        },
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["send"],
+          },
+        },
+        description: "Message text. Required if Media URL is not set. Cannot be combined with Media URL in the same send.",
+      },
+      // DM Message - Media URL (send)
+      {
+        displayName: "Media URL",
+        name: "dmMessageMediaUrl",
+        type: "string",
+        required: false,
+        default: "",
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["send"],
+          },
+        },
+        description: "URL of a single media attachment to send. Required if Body is not set. Bluesky does not support attachments.",
+        placeholder: "https://example.com/photo.png",
+      },
+      // DM Message - Reaction (react)
+      {
+        displayName: "Reaction",
+        name: "dmMessageReaction",
+        type: "options",
+        required: true,
+        default: "love",
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["react"],
+          },
+        },
+        options: [
+          { name: "Angry 😡", value: "angry" },
+          { name: "Dislike 👎", value: "dislike" },
+          { name: "Like 👍", value: "like" },
+          { name: "Love ❤️", value: "love" },
+          { name: "Sad 😢", value: "sad" },
+          { name: "Smile 😆", value: "smile" },
+          { name: "Wow 😮", value: "wow" },
+        ],
+        description: "Reaction to add. Instagram only supports 'Love'. Second reaction from the same account replaces the previous.",
+      },
+      // DM Message - Additional fields (send)
+      {
+        displayName: "Additional Fields",
+        name: "dmMessageSendFields",
+        type: "collection",
+        placeholder: "Add Field",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["send"],
+          },
+        },
+        options: [
+          {
+            displayName: "Reply To External ID",
+            name: "reply_to_external_id",
+            type: "string",
+            default: "",
+            description: "Telegram only: platform message ID to thread this reply under",
+          },
+          {
+            displayName: "Reply Markup",
+            name: "reply_markup",
+            type: "json",
+            default: "",
+            description: "Telegram only: inline keyboard, reply keyboard, or force-reply payload. Example: <code>{\"inline_keyboard\":[[{\"text\":\"Plans\",\"callback_data\":\"plans\"}]]}</code>",
+          },
+        ],
+      },
+      // DM Message - Return All (list)
+      {
+        displayName: "Return All",
+        name: "returnAll",
+        type: "boolean",
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["list"],
+          },
+        },
+        default: false,
+        description: "Whether to return all results or only up to a given limit",
+      },
+      // DM Message - Filters (list)
+      {
+        displayName: "Filters",
+        name: "dmMessageListFilters",
+        type: "collection",
+        placeholder: "Add Filter",
+        default: {},
+        displayOptions: {
+          show: {
+            resource: ["dmMessage"],
+            operation: ["list"],
+          },
+        },
+        options: [
+          {
+            displayName: "Direction",
+            name: "direction",
+            type: "options",
+            default: "",
+            options: [
+              { name: "Any", value: "" },
+              { name: "Inbound", value: "inbound" },
+              { name: "Outbound", value: "outbound" },
+            ],
+            description: "Filter messages by direction",
+          },
+          {
+            displayName: "Page",
+            name: "page",
+            type: "number",
+            default: 0,
+            typeOptions: { minValue: 0 },
+            description: "Page number (0-indexed)",
+          },
+          {
+            displayName: "Per Page",
+            name: "per_page",
+            type: "number",
+            default: 20,
+            typeOptions: { minValue: 1 },
+            description: "Number of results per page",
+          },
+          {
+            displayName: "Status",
+            name: "status",
+            type: "string",
+            default: "",
+            description: "Filter by message status (e.g. pending, published, received, failed)",
+          },
+        ],
       },
       // Post resource operations
       {
@@ -1219,26 +1707,55 @@ export class PostProxy implements INodeType {
         ],
       },
       {
-        displayName: "Profile",
+        displayName: "Profiles",
         name: "profiles",
-        type: "multiOptions",
+        type: "fixedCollection",
+        typeOptions: { multipleValues: true },
         displayOptions: {
           show: {
             resource: ["post"],
             operation: ["create"],
           },
         },
-        typeOptions: {
-          loadOptionsMethod: "getProfilesForGroup",
-          loadOptionsDependOn: ["profileGroup"],
-        },
         required: true,
-        default: [],
-        placeholder: "Select profiles from the group",
-        description: "Select the social media platforms to publish to",
+        default: { items: [] },
+        placeholder: "Add Profile",
+        description: "Select the social media profiles to publish to. The list filters to the selected Profile Group.",
+        options: [
+          {
+            name: "items",
+            displayName: "Profile",
+            values: [
+              {
+                displayName: "Profile",
+                name: "profileId",
+                type: "resourceLocator",
+                default: { mode: "list", value: "" },
+                description: "Select a profile",
+                modes: [
+                  {
+                    displayName: "From List",
+                    name: "list",
+                    type: "list",
+                    typeOptions: {
+                      searchListMethod: "searchProfilesFiltered",
+                      searchable: true,
+                    },
+                  },
+                  {
+                    displayName: "By ID",
+                    name: "id",
+                    type: "string",
+                    placeholder: "e.g. NAnUjO",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       },
       {
-        displayName: "Additional Fields",
+        displayName: "Placements",
         name: "postAdditionalFields",
         type: "collection",
         placeholder: "Add Field",
@@ -1299,6 +1816,30 @@ export class PostProxy implements INodeType {
             ],
           },
           {
+            displayName: "Telegram Channel",
+            name: "telegramChannel",
+            type: "resourceLocator",
+            default: { mode: "list", value: "" },
+            description: "Telegram channel or group to publish to (for Telegram profiles). Use Profile > Get Placements to find available channels.",
+            modes: [
+              {
+                displayName: "From List",
+                name: "list",
+                type: "list",
+                typeOptions: {
+                  searchListMethod: "searchTelegramChannels",
+                  searchable: true,
+                },
+              },
+              {
+                displayName: "By ID",
+                name: "id",
+                type: "string",
+                placeholder: "e.g. -1001234567890",
+              },
+            ],
+          },
+          {
             displayName: "Pinterest Board",
             name: "pinterestBoard",
             type: "resourceLocator",
@@ -1322,6 +1863,7 @@ export class PostProxy implements INodeType {
               },
             ],
           },
+
         ],
       },
       {
@@ -1767,10 +2309,13 @@ export class PostProxy implements INodeType {
             type: "multiOptions",
             default: [],
             options: [
+              { name: "Bluesky", value: "bluesky" },
               { name: "Facebook", value: "facebook" },
+              { name: "Google Business", value: "google_business" },
               { name: "Instagram", value: "instagram" },
               { name: "LinkedIn", value: "linkedin" },
               { name: "Pinterest", value: "pinterest" },
+              { name: "Telegram", value: "telegram" },
               { name: "Threads", value: "threads" },
               { name: "TikTok", value: "tiktok" },
               { name: "X (Twitter)", value: "twitter" },
@@ -2072,15 +2617,16 @@ export class PostProxy implements INodeType {
             },
           );
 
-          const profiles = response.data || response.items || (Array.isArray(response) ? response : []);
-          
+          const profiles = response.targets || response.data || response.items || (Array.isArray(response) ? response : []);
+
           let results: INodeListSearchItems[] = profiles.map((profile: any) => {
             const profileName = profile.name || profile.username || `Profile ${profile.id}`;
             const platformType = profile.platform || "unknown";
-            
+            const profileId = profile.id != null ? String(profile.id) : "";
+
             return {
-              name: `${profileName} (${platformType})`,
-              value: profile.id != null ? String(profile.id) : "",
+              name: `${profileName} - ${platformType} (${profileId})`,
+              value: profileId,
             };
           });
 
@@ -2090,6 +2636,82 @@ export class PostProxy implements INodeType {
             results = results.filter((item) => 
               item.name.toLowerCase().includes(filterLower) || 
               String(item.value).toLowerCase().includes(filterLower)
+            );
+          }
+
+          return { results };
+        } catch (error: any) {
+          throw new NodeApiError(this.getNode(), error, {
+            message: "Failed to search profiles",
+            description: error.message,
+          });
+        }
+      },
+      async searchProfilesFiltered(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        try {
+          // listSearch context provides getCurrentNodeParameter with current editor params.
+          // Use extractValue:true so n8n resolves the ResourceLocator to its hashid directly.
+          let groupIdValue = "";
+          try {
+            const extracted = this.getCurrentNodeParameter("profileGroup", { extractValue: true });
+            if (typeof extracted === "string" && extracted) groupIdValue = extracted;
+          } catch { /* continue */ }
+
+          // Fallback: parse the raw ResourceLocator object manually
+          if (!groupIdValue) {
+            try {
+              const raw = this.getCurrentNodeParameter("profileGroup");
+              if (raw != null) groupIdValue = extractResourceLocatorValue(raw) || "";
+            } catch { /* load all profiles if unavailable */ }
+          }
+
+          const profilesUrl = groupIdValue
+            ? `${BASE_URL}/profiles?profile_group_id=${encodeURIComponent(groupIdValue)}`
+            : `${BASE_URL}/profiles`;
+
+          const [profilesResp, groupsResp] = await Promise.all([
+            this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
+              method: "GET",
+              url: profilesUrl,
+              headers: { "Content-Type": "application/json" },
+              json: true,
+              timeout: 30000,
+            }),
+            this.helpers.httpRequestWithAuthentication.call(this, "postProxyApi", {
+              method: "GET",
+              url: `${BASE_URL}/profile_groups/`,
+              headers: { "Content-Type": "application/json" },
+              json: true,
+              timeout: 30000,
+            }),
+          ]);
+
+          const profiles = profilesResp.targets || profilesResp.data || profilesResp.items || (Array.isArray(profilesResp) ? profilesResp : []);
+          const groups: any[] = groupsResp.data || [];
+          const groupNames: Record<string, string> = {};
+          for (const g of groups) {
+            if (g.id != null) groupNames[String(g.id)] = g.name || String(g.id);
+          }
+
+          let results: INodeListSearchItems[] = profiles.map((profile: any) => {
+            const profileName = profile.name || profile.username || `Profile ${profile.id}`;
+            const platformType = profile.platform || "unknown";
+            const profileId = profile.id != null ? String(profile.id) : "";
+            const groupName = profile.profile_group_id ? (groupNames[String(profile.profile_group_id)] || String(profile.profile_group_id)) : "";
+            const groupSuffix = groupName ? ` [${groupName}]` : "";
+            return {
+              name: `${profileName} - ${platformType} (${profileId})${groupSuffix}`,
+              value: profileId,
+            };
+          });
+
+          if (filter) {
+            const f = filter.toLowerCase();
+            results = results.filter((r) =>
+              r.name.toLowerCase().includes(f) || String(r.value).toLowerCase().includes(f),
             );
           }
 
@@ -2165,11 +2787,14 @@ export class PostProxy implements INodeType {
           );
 
           const groups = response.data || [];
-          
-          let results: INodeListSearchItems[] = groups.map((group: any) => ({
-            name: group.name || `Group ${group.id}`,
-            value: group.id != null ? String(group.id) : "",
-          }));
+
+          let results: INodeListSearchItems[] = groups.map((group: any) => {
+            const groupId = group.id != null ? String(group.id) : "";
+            return {
+              name: groupId ? `${group.name || `Group ${groupId}`} (${groupId})` : (group.name || "Unknown Group"),
+              value: groupId,
+            };
+          });
 
           // Filter by search term if provided
           if (filter && typeof filter === "string") {
@@ -2206,6 +2831,12 @@ export class PostProxy implements INodeType {
       ): Promise<INodeListSearchResult> {
         return searchPlacementsByPlatform.call(this, "pinterest", filter);
       },
+      async searchTelegramChannels(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
+        return searchPlacementsByPlatform.call(this, "telegram", filter);
+      },
     },
     loadOptions: {
       async getProfileGroups(
@@ -2239,83 +2870,6 @@ export class PostProxy implements INodeType {
           });
         }
       },
-      async getProfilesForGroup(
-        this: ILoadOptionsFunctions,
-      ): Promise<Array<{ name: string; value: string }>> {
-        try {
-          // Try to get profileGroupId from node parameters
-          let profileGroupId: string | undefined;
-          
-          try {
-            profileGroupId = this.getCurrentNodeParameter("profileGroup") as string | undefined;
-          } catch {
-            // getCurrentNodeParameter may fail, try alternative methods
-            try {
-              profileGroupId = this.getNodeParameter("profileGroup", 0) as string | undefined;
-            } catch {
-              try {
-                const node = this.getNode();
-                profileGroupId = node?.parameters?.profileGroup as string | undefined;
-              } catch {
-                // All methods failed, profileGroupId remains undefined
-              }
-            }
-          }
-
-          // Load ALL profiles from API
-          // Note: loadOptionsDependOn doesn't reliably pass profileGroup value,
-          // so we load all profiles and filter client-side
-          const response = await this.helpers.httpRequestWithAuthentication.call(
-            this,
-            "postProxyApi",
-            {
-              method: "GET",
-              url: `${BASE_URL}/profiles`,
-              headers: {
-                "Content-Type": "application/json",
-              },
-              json: true,
-              timeout: 30000,
-            },
-          );
-
-          // Extract profiles from response
-          let profiles = response.data || response.items || (Array.isArray(response) ? response : []);
-
-          // Filter by profileGroupId if provided
-          if (profileGroupId && profileGroupId !== "") {
-            // Extract value from resource locator if needed
-            const groupIdValue = typeof profileGroupId === "object" && profileGroupId !== null
-              ? extractResourceLocatorValue(profileGroupId)
-              : String(profileGroupId);
-            
-            if (groupIdValue) {
-              profiles = profiles.filter((profile: any) => {
-                const profileGroupId = String(profile.profile_group_id || "");
-                return profileGroupId === groupIdValue;
-              });
-            }
-          }
-
-          // Map profiles to dropdown options
-          return profiles.map((profile: any) => {
-            const profileName = profile.name || profile.username || `Profile ${profile.id}`;
-            const platformType = profile.platform || "unknown";
-            const displayName = `${profileName} (${platformType})`;
-            const profileId = profile.id != null ? String(profile.id) : "";
-            
-            return {
-              name: displayName,
-              value: profileId,
-            };
-          });
-        } catch (error: any) {
-          throw new NodeApiError(this.getNode(), error, {
-            message: "Failed to load profiles",
-            description: error.message,
-          });
-        }
-      },
     },
   };
 
@@ -2337,7 +2891,11 @@ export class PostProxy implements INodeType {
             const publishType = this.getNodeParameter("publishType", i) as string;
             const profileGroupRaw = this.getNodeParameter("profileGroup", i);
             const profileGroupId = extractResourceLocatorValue(profileGroupRaw);
-            const profiles = this.getNodeParameter("profiles", i) as string[];
+            const profilesData = this.getNodeParameter("profiles", i) as any;
+            const profileItems: any[] = profilesData?.items || [];
+            const profiles = profileItems
+              .map((item: any) => extractResourceLocatorValue(item.profileId))
+              .filter((id: string) => id && id.trim().length > 0);
             const mediaUrls = this.getNodeParameter("media", i, []) as any;
             const publishAt = this.getNodeParameter("publish_at", i, "") as string | undefined;
             const platformParamsRaw = this.getNodeParameter("platformParams", i, "{}") as string;
@@ -2512,6 +3070,13 @@ export class PostProxy implements INodeType {
               if (!body.platforms) body.platforms = {};
               if (!body.platforms.pinterest) body.platforms.pinterest = {};
               body.platforms.pinterest.board_id = pinterestBoardId;
+            }
+
+            const telegramChannelId = extractResourceLocatorValue(postAdditionalFields.telegramChannel);
+            if (telegramChannelId) {
+              if (!body.platforms) body.platforms = {};
+              if (!body.platforms.telegram) body.platforms.telegram = {};
+              body.platforms.telegram.chat_id = telegramChannelId;
             }
 
             // Add queue parameters if publish type is queue
@@ -3175,6 +3740,187 @@ export class PostProxy implements INodeType {
         }
         const body = { profile_id: profileId };
         responseData = await makeRequest.call(this, "POST", `/posts/${postId}/comments/${commentId.trim()}/unlike`, body);
+      } else if (operation === "privateReply") {
+        const commentId = this.getNodeParameter("commentId", i) as string;
+        const text = this.getNodeParameter("commentPrivateReplyText", i) as string;
+        if (!commentId || commentId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Comment ID is required", {});
+        }
+        if (!text || text.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Reply text is required", {});
+        }
+        const queryParams = new URLSearchParams({ profile_id: profileId });
+        responseData = await makeRequest.call(
+          this,
+          "POST",
+          `/posts/${postId}/comments/${commentId.trim()}/private_reply?${queryParams.toString()}`,
+          { text: text.trim() },
+        );
+      }
+    }
+
+    // DM CHAT RESOURCE
+    else if (resource === "dmChat") {
+      if (operation === "list") {
+        const profileId = this.getNodeParameter("dmChatProfileId", i) as string;
+        if (!profileId || profileId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Profile ID is required", {});
+        }
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+        const filters = this.getNodeParameter("dmChatListFilters", i, {}) as any;
+        let allItems: any[] = [];
+        let currentPage = filters.page ?? 0;
+        let perPage = filters.per_page ?? 20;
+        let total = 0;
+
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+          if (filters.before) queryParams.append("before", filters.before);
+          if (filters.after) queryParams.append("after", filters.after);
+
+          const response = await makeRequest.call(
+            this,
+            "GET",
+            `/profiles/${profileId.trim()}/chats?${queryParams.toString()}`,
+          );
+          const items = response.data || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
+
+        responseData = {
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
+        };
+      } else if (operation === "create") {
+        const profileId = this.getNodeParameter("dmChatProfileId", i) as string;
+        const participantExternalId = this.getNodeParameter("dmParticipantExternalId", i) as string;
+        const additionalFields = this.getNodeParameter("dmChatCreateFields", i, {}) as any;
+
+        if (!profileId || profileId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Profile ID is required", {});
+        }
+        if (!participantExternalId || participantExternalId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Participant External ID is required", {});
+        }
+
+        const body: any = { participant_external_id: participantExternalId.trim() };
+        if (additionalFields.participant_username) body.participant_username = additionalFields.participant_username;
+        if (additionalFields.participant_name) body.participant_name = additionalFields.participant_name;
+
+        responseData = await makeRequest.call(this, "POST", `/profiles/${profileId.trim()}/chats`, body);
+      } else if (operation === "get") {
+        const chatId = this.getNodeParameter("dmChatId", i) as string;
+        if (!chatId || chatId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Chat ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/chats/${chatId.trim()}`);
+      }
+    }
+
+    // DM MESSAGE RESOURCE
+    else if (resource === "dmMessage") {
+      if (operation === "list") {
+        const chatId = this.getNodeParameter("dmMessageChatId", i) as string;
+        if (!chatId || chatId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Chat ID is required", {});
+        }
+        const returnAll = this.getNodeParameter("returnAll", i, false) as boolean;
+        const filters = this.getNodeParameter("dmMessageListFilters", i, {}) as any;
+        let allItems: any[] = [];
+        let currentPage = filters.page ?? 0;
+        let perPage = filters.per_page ?? 20;
+        let total = 0;
+
+        do {
+          const queryParams = new URLSearchParams();
+          queryParams.append("page", String(currentPage));
+          queryParams.append("per_page", String(perPage));
+          if (filters.direction) queryParams.append("direction", filters.direction);
+          if (filters.status) queryParams.append("status", filters.status);
+
+          const response = await makeRequest.call(
+            this,
+            "GET",
+            `/chats/${chatId.trim()}/messages?${queryParams.toString()}`,
+          );
+          const items = response.data || (Array.isArray(response) ? response : []);
+          allItems = allItems.concat(items);
+
+          if (returnAll) {
+            total = response.total || items.length;
+            perPage = response.per_page || perPage;
+            currentPage++;
+          } else {
+            break;
+          }
+        } while (returnAll && allItems.length < total);
+
+        responseData = {
+          total: returnAll ? total : allItems.length,
+          page: returnAll ? 0 : currentPage,
+          per_page: perPage,
+          data: allItems,
+        };
+      } else if (operation === "send") {
+        const chatId = this.getNodeParameter("dmMessageChatId", i) as string;
+        const body = this.getNodeParameter("dmMessageBody", i, "") as string;
+        const mediaUrl = this.getNodeParameter("dmMessageMediaUrl", i, "") as string;
+        const additionalFields = this.getNodeParameter("dmMessageSendFields", i, {}) as any;
+
+        if (!chatId || chatId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Chat ID is required", {});
+        }
+        if ((!body || body.trim().length === 0) && (!mediaUrl || mediaUrl.trim().length === 0)) {
+          throw new NodeOperationError(
+            this.getNode(),
+            "Body or Media URL is required",
+            { description: "Provide either message text (Body) or a Media URL, not both." },
+          );
+        }
+
+        const requestBody: any = {};
+        if (body && body.trim().length > 0) requestBody.body = body.trim();
+        if (mediaUrl && mediaUrl.trim().length > 0) requestBody.media = [{ url: mediaUrl.trim() }];
+        if (additionalFields.reply_to_external_id) {
+          requestBody.reply_to_external_id = additionalFields.reply_to_external_id;
+        }
+        if (additionalFields.reply_markup) {
+          const raw = additionalFields.reply_markup;
+          requestBody.reply_markup = typeof raw === "string" ? JSON.parse(raw) : raw;
+        }
+
+        responseData = await makeRequest.call(this, "POST", `/chats/${chatId.trim()}/messages`, requestBody);
+      } else if (operation === "get") {
+        const messageId = this.getNodeParameter("dmMessageId", i) as string;
+        if (!messageId || messageId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Message ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "GET", `/messages/${messageId.trim()}`);
+      } else if (operation === "react") {
+        const messageId = this.getNodeParameter("dmMessageId", i) as string;
+        const reaction = this.getNodeParameter("dmMessageReaction", i, "love") as string;
+        if (!messageId || messageId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Message ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "POST", `/messages/${messageId.trim()}/react`, { reaction });
+      } else if (operation === "unreact") {
+        const messageId = this.getNodeParameter("dmMessageId", i) as string;
+        if (!messageId || messageId.trim().length === 0) {
+          throw new NodeOperationError(this.getNode(), "Message ID is required", {});
+        }
+        responseData = await makeRequest.call(this, "DELETE", `/messages/${messageId.trim()}/unreact`);
       }
     }
 

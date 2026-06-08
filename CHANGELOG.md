@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-08
+
+### Added
+- **DM Chat resource**: List, Create, Get operations — manage direct message conversations across Facebook, Instagram, Telegram, and Bluesky
+- **DM Message resource**: List, Send, Get, React, Unreact operations — send and manage direct messages; Send supports text, media URL, `reply_to_external_id` (Telegram threading), and `reply_markup` (Telegram inline/reply keyboards)
+- **Comment › Private Reply**: new operation to send a DM to a comment author (Facebook & Instagram only, one reply per comment lifetime)
+- **Telegram Channel placement** in Post › Create: select destination channel/group from list or enter ID directly; mapped to `platforms.telegram.chat_id`
+- **New platforms** in profile/post filters: Bluesky, Telegram, Google Business
+- **New webhook events**: `message.received`, `message.sent`, `message.delivered`, `message.read`, `message.edited`, `message.deleted`, `message.failed`, `message.failed_waiting_for_retry`, `reaction.received`
+- Profile and Profile Group dropdowns now show the PostProxy ID in parentheses (e.g. `ootro - bluesky (gW9UA2)`)
+- Profile Group dropdown shows group ID in parentheses (e.g. `Postproxy (KOGFMA)`)
+- Profile dropdown shows group name in brackets (e.g. `[Postproxy]`) so cross-group selections are immediately visible
+
+### Changed
+- **Profile › Create Post** — `Profiles` field changed from `multiOptions` to `fixedCollection` of `resourceLocator` entries; each profile is now selected individually with server-side search filtered to the selected Profile Group. **Breaking change**: existing saved workflows must re-select profiles.
+- `Additional Fields` section in Post › Create renamed to **Placements** to better reflect its purpose
+- Profiles API response now correctly reads `targets` field (was silently falling back to empty list)
+- Profile list filtered server-side via `?profile_group_id=` instead of unreliable client-side filtering
+
+### Fixed
+- Profile dropdown was always showing Default group profiles regardless of selected Profile Group — root cause was `GET /profiles` returning only the default group; fixed by fetching profiles per group using the placements API
+
 ## [0.3.1] - 2026-04-15
 
 ### Fixed
@@ -119,7 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Media attachments support
 - Platform-specific parameters support
 
-[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/postproxy/n8n-nodes-postproxy/compare/v0.2.7...v0.2.8
