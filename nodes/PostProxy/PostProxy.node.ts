@@ -1879,9 +1879,9 @@ export class PostProxy implements INodeType {
         typeOptions: {
           rows: 4,
         },
-        required: true,
+        required: false,
         default: "",
-        description: "The text content of the post",
+        description: "The text content of the post. Leave empty for stories.",
       },
       {
         displayName: "Media URLs",
@@ -2901,16 +2901,6 @@ export class PostProxy implements INodeType {
             const platformParamsRaw = this.getNodeParameter("platformParams", i, "{}") as string;
 
             // Validation
-            if (!content || content.trim().length === 0) {
-              throw new NodeOperationError(
-                this.getNode(),
-                "Content cannot be empty",
-                { 
-                  description: `Please provide post content in the 'Content' field. Received: "${content || '(empty)'}"\n\nIf you're using expressions like {{ $json.content }}, make sure:\n1. The previous node outputs data with this field\n2. The field name matches exactly\n3. Try using the expression editor to select the field` 
-                }
-              );
-            }
-
             if (!profileGroupId) {
               throw new NodeOperationError(
                 this.getNode(),
