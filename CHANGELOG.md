@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-04
+
+### Fixed
+- Post › Create: Content field is no longer required, allowing stories and other media-only post formats to be created without text
+
 ## [0.4.0] - 2026-06-08
 
 ### Added
