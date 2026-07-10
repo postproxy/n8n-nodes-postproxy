@@ -21,3 +21,6 @@ yarn-error.log*
 # Cursor IDE
 .cursor/
 git
+
+# local examples
+examples/
